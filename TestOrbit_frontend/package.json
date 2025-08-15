@@ -17,6 +17,7 @@
     "lint": "run-s lint:*"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.11.0",
     "element-plus": "^2.10.7",
     "normalize.css": "^8.0.1",
