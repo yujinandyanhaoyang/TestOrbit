@@ -35,7 +35,7 @@ export function convertToElTreeData(modules: TestModuleNode[]): ElTreeNode[] {
 
 
 //场景用例信息
-export interface TestCaseInfo {
+export interface CaseGroupInfo {
   id: number;           // 用例ID
   name: string;         // 用例名称
   creater_name: string; // 创建者名称
@@ -48,10 +48,48 @@ export interface TestCaseInfo {
 }
 
 // 场景用例列表返回结果
-export type TestCaseListResult = {
+export type CaseGroupListResult = {
     total: number;
-    data: TestCaseInfo[];
+    data: CaseGroupInfo[];
 }
 
 // 场景用例列表响应接口
-export type TestCaseListResponse = DataResponse<TestCaseListResult>;
+export type CaseGroupListResponse = DataResponse<CaseGroupListResult>;
+
+
+
+// 定义变量数据类型
+
+// 全局变量
+
+            // {
+            //     "id": 5,
+            //     "created": "2025-08-14T13:26:36.445156",
+            //     "updated": "2025-08-14T13:29:33.670775",
+            //     "name": "全局共享环境-百度地址",
+            //     "remark": "提供百度的官网地址。这里其实可以扩展成全局环境变量，方便查看和管理配置"
+            // },
+export interface GlobalVarInfo {
+    id: number;
+    created: string;
+    updated: string;
+    name: string;
+    remark: string;
+}
+
+
+// 全局变量列表返回结果
+export type GlobalVarListResult = {
+    total: number;
+    data: GlobalVarInfo[];
+}
+
+// 全局变量列表响应接口
+export type GlobalVarListResponse = DataResponse<GlobalVarListResult>;
+
+// 创建全局变量请求体
+export interface CreateGlobalVarRequest {
+    name: string;
+    remark: string;
+    envir_1_host: string;
+}

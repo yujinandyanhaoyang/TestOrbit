@@ -43,10 +43,7 @@ const router = createRouter({
       path:'/Case',
       component: () => import('@/views/CaseManage/index.vue'),
       children:[
-                {
-          path: '/CaseManage',
-          component: () => import('@/views/CaseManage/Cases/index.vue')
-        },
+        
       ]
     }
   ],

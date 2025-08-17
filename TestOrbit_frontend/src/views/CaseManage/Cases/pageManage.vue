@@ -23,9 +23,9 @@
       <el-button 
         type="info" 
         size="small" 
-        @click="addTab('用例详情', '', 456, 'CaseDetail')"
+        @click="openCaseGroup(456)"
       >
-        打开用例 #456
+        打开用例组 #456
       </el-button>
       
       <!-- 打开测试报告的按钮 -->
@@ -87,10 +87,11 @@
 
 <script lang="ts" setup>
 import { ref, shallowRef, defineAsyncComponent } from 'vue'
-// 使用新的组件，不是旧的index.vue
-import CasesList from './CasesList.vue'
-import CaseDetail from './caseDetail.vue'
-import TestReport from './TestReport.vue'
+// 使用新的自定义组件
+import CasesList from './CaseGroupList.vue'
+import CaseDetail from './CaseGroup/caseDetail.vue'
+import TestReport from './CaseGroup/testReport.vue'
+import CaseGroup from './CaseGroup/index.vue'
 import { Plus } from '@element-plus/icons-vue'
 
 import type { TabPaneName } from 'element-plus'
@@ -222,6 +223,7 @@ const resolveComponent = (componentName: string) => {
   const componentMap: Record<string, any> = {
     'CaseDetail': CaseDetail,
     'TestReport': TestReport,
+    'CaseGroup': CaseGroup,
     // 可以添加更多组件...
   }
 
@@ -242,28 +244,17 @@ const handleOpenCaseDetail = (caseId: number) => {
  * @param reportId 测试报告ID
  */
 const openTestReport = (reportId: number) => {
-  // 查找是否已经打开了该报告的标签
-  const existingTab = editableTabs.value.find(tab => tab.name === `report-${reportId}`)
-  if (existingTab) {
-    // 如果已经存在，直接切换到该标签
-    editableTabsValue.value = existingTab.name
-    return
-  }
-  
-  // 使用reportId作为标签名的一部分，便于后续查找
-  const newTabName = `report-${reportId}`
-  
-  // 添加新标签到列表
-  editableTabs.value.push({
-    title: `测试报告 #${reportId}`,
-    name: newTabName,
-    content: '',
-    componentName: 'TestReport',
-    props: { reportId }
-  })
-  
-  // 自动切换到新标签
-  editableTabsValue.value = newTabName
+  // 使用通用的addTab方法打开测试报告
+  addTab('测试报告', '', reportId, 'TestReport', { reportId })
+}
+
+/**
+ * 打开用例组
+ * @param groupId 用例组ID
+ */
+const openCaseGroup = (groupId: number) => {
+  // 使用通用的addTab方法打开用例组
+  addTab('用例组', '', groupId, 'CaseGroup', { groupId })
 }
 </script>
 

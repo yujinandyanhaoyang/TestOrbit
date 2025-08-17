@@ -87,8 +87,8 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { Delete, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import type { TestCaseInfo } from '@/api/case/types'
-import { getTestCaseList, RestoreTestCase,RealDeleteTestCase,ClearTestCase } from '@/api/case'
+import type { CaseGroupInfo } from '@/api/case/types'
+import { getCaseGroupList, RestoreCaseGroup,RealDeleteCaseGroup,ClearCaseGroup } from '@/api/case'
 
 
 // 抽屉控制
@@ -96,9 +96,9 @@ const drawer = ref(false)
 
 // 表格数据
 const recycleTableRef = ref()
-const recycleData = ref<TestCaseInfo[]>([])
+const recycleData = ref<CaseGroupInfo[]>([])
 const loading = ref(false)
-const selectedItems = ref<TestCaseInfo[]>([])
+const selectedItems = ref<CaseGroupInfo[]>([])
 const hasSelection = computed(() => selectedItems.value.length > 0)
 
 // 分页控制
@@ -118,7 +118,7 @@ const loadRecycleData = async () => {
   loading.value = true
   try {
     // 参数中的is_deleted设置为true，表示获取回收站数据
-    const response = await getTestCaseList(
+    const response = await getCaseGroupList(
       currentPage.value,
       pageSize.value,
       true // 获取已删除的数据
@@ -154,12 +154,12 @@ const handleCurrentChange = (page: number) => {
 }
 
 // 处理选择变化
-const handleSelectionChange = (selection: TestCaseInfo[]) => {
+const handleSelectionChange = (selection: CaseGroupInfo[]) => {
   selectedItems.value = selection
 }
 
 // 恢复单个用例
-const handleRestore = (row: TestCaseInfo) => {
+const handleRestore = (row: CaseGroupInfo) => {
   ElMessageBox.confirm(
     `确定要恢复用例"${row.name}"吗？`,
     '恢复确认',
@@ -170,7 +170,7 @@ const handleRestore = (row: TestCaseInfo) => {
     }
   ).then(async () => {
     // 调用恢复API
-    const response = await RestoreTestCase(row.id, 'false')
+    const response = await RestoreCaseGroup(row.id, 'false')
     if (response.code == 200) {
       loadRecycleData()
       ElMessage.success(`用例"${row.name}"已恢复`)
@@ -184,7 +184,7 @@ const handleRestore = (row: TestCaseInfo) => {
 }
 
 // 彻底删除单个用例
-const handlePermanentDelete = (row: TestCaseInfo) => {
+const handlePermanentDelete = (row: CaseGroupInfo) => {
   ElMessageBox.confirm(
     `用例"${row.name}"将被彻底删除，不可恢复！确定要继续吗？`,
     '删除警告',
@@ -195,7 +195,7 @@ const handlePermanentDelete = (row: TestCaseInfo) => {
     }
   ).then(async () => {
     // 调用彻底删除API
-    const response = await RealDeleteTestCase(row.id,true)
+    const response = await RealDeleteCaseGroup(row.id,true)
     if (response.code == 200) {
       loadRecycleData()
       ElMessage.success(`用例"${row.name}"已彻底删除`)
@@ -220,7 +220,7 @@ const handleClearAll = () => {
     }
   ).then(async () => {
     // 调用清空回收站API
-    const response = await ClearTestCase()
+    const response = await ClearCaseGroup()
     if (response.code == 200) {
       ElMessage.success(`已清空回收站`)
       loadRecycleData()

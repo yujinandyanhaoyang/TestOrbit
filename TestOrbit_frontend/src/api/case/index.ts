@@ -2,7 +2,8 @@
 // 引入二次封装的请求方法
 import request from '@/utils/request'
 import type { TestModuleTreeResponse, 
-            TestCaseListResponse
+            CaseGroupListResponse,
+             GlobalVarListResponse
         } from './types'
 
 // API枚举
@@ -14,8 +15,13 @@ enum API {
     // 用例操作相关接口
     CASE_TEST_URL = '/api-data/case-view',
     CASE_TEST_COPY_URL = '/api-data/copy-cases',
-    CASE_TEST_CLEAR_URL = '/api-data/clean-deleted-cases'
+    CASE_TEST_CLEAR_URL = '/api-data/clean-deleted-cases',
+    CASE_GROUP_RUN_URL = '/api-data/run-api-cases',
 
+    // 变量相关接口
+    // 全局变量
+    GLOBAL_VARIABLES = '/project/project-view'
+    
 }
 
 /**
@@ -55,8 +61,8 @@ export const deleteTestModule = (id: string): Promise<any> => {
     return request.delete(API.CASEFOLDER_MODULE, { params: { id } })
 }
 
-// 获取文件下的用例列表
-export const getTestCaseList = (page:number = 1,page_size:number = 20,is_deleted:boolean = false,  name?:string, module_id?:string): Promise<TestCaseListResponse> => {
+// 获取文件下的用例组列表
+export const getCaseGroupList = (page:number = 1,page_size:number = 20,is_deleted:boolean = false,  name?:string, module_id?:string): Promise<CaseGroupListResponse> => {
     return request.get(`${API.CASE_TEST_URL}`, {
         params: {
             page,
@@ -68,13 +74,13 @@ export const getTestCaseList = (page:number = 1,page_size:number = 20,is_deleted
     })
 }
 
-// 删除用例
-export const DeleteTestCase = (id: number): Promise<any> => {
+// 删除用例组
+export const DeleteCaseGroup = (id: number): Promise<any> => {
     return request.delete(`${API.CASE_TEST_URL}?id=` + id)
 }
 
-// 复制用例
-export const CopyTestCase = (case_id: number): Promise<any> => {
+// 复制用例组
+export const CopyCaseGroup = (case_id: number): Promise<any> => {
     return request.post(
         API.CASE_TEST_COPY_URL,
         {
@@ -84,15 +90,58 @@ export const CopyTestCase = (case_id: number): Promise<any> => {
     )
 }
 
-// 还原用例
-export const RestoreTestCase = (id: number,is_deleted:string): Promise<any> => {
+// 还原用例组
+export const RestoreCaseGroup = (id: number,is_deleted:string): Promise<any> => {
     return request.patch(`${API.CASE_TEST_URL}`, { id,is_deleted })
 }
-// 彻底删除用例
-export const RealDeleteTestCase = (id: number,real_delete:boolean): Promise<any> => {
+// 彻底删除用例组
+export const RealDeleteCaseGroup = (id: number,real_delete:boolean): Promise<any> => {
     return request.delete(`${API.CASE_TEST_URL}`, { params: { id, real_delete } })
 }
 // 清空回收站
-export const ClearTestCase = (): Promise<any> => {
+export const ClearCaseGroup = (): Promise<any> => {
     return request.delete(API.CASE_TEST_CLEAR_URL)
+}
+
+// 用例组相关接口
+// 运行用例组
+// 请求体类型caseIds: [4, 32], envir: 1
+export const runCaseGroup = (caseIds: number[], envir:number): Promise<any> => {
+    return request.post(
+        // 路径
+        API.CASE_GROUP_RUN_URL,
+        // 请求体
+        { case: caseIds, envir }
+    )
+}
+
+// 获取全局变量列表
+export const getGlobalVariables = (page:number = 1,page_size:number = 20): Promise< GlobalVarListResponse> => {
+    return request.get(`${API.GLOBAL_VARIABLES}`, {
+        params: {
+            page,
+            page_size
+        }
+    })
+}
+
+// 新增全局变量
+export const addGlobalVariables = (data:any): Promise<any> => {
+    return request.post(
+        API.GLOBAL_VARIABLES,
+        data
+    )
+}
+
+// 更新全局变量
+export const updateGlobalVariables = (data:any): Promise<any> => {
+    return request.patch(
+        API.GLOBAL_VARIABLES,
+        data
+    )
+}
+
+// 删除全局变量
+export const deleteGlobalVariables = (id: number): Promise<any> => {
+    return request.delete(`${API.GLOBAL_VARIABLES}`, { params: { id } })
 }

@@ -21,13 +21,25 @@
         </template>
       </el-input>
       <el-button type="primary" @click="handleAddCase">添加用例</el-button>
-      <el-button :disabled="!props.hasSelection" @click="emit('batchAction')">批量操作</el-button>
+      <el-dropdown :disabled="!props.hasSelection" @command="handleBatchAction">
+        <el-button :disabled="!props.hasSelection">
+          批量操作 <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="run">批量执行</el-dropdown-item>
+            <el-dropdown-item command="export">批量导出</el-dropdown-item>
+            <el-dropdown-item command="delete" divided>批量删除</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, defineEmits, defineProps } from 'vue'
+import { ArrowDown } from '@element-plus/icons-vue'
 
 // 定义组件事件
 const emit = defineEmits(['search', 'add', 'batchAction'])
@@ -52,6 +64,11 @@ const handleSearch = () => {
   // 无论输入框是否有内容，都触发搜索事件
   // 当输入为空时，传递空字符串，表示搜索所有用例
   emit('search', searchQuery.value.trim())
+}
+
+// 处理批量操作
+const handleBatchAction = (command: string) => {
+  emit('batchAction', command)
 }
 
 </script>
