@@ -61,14 +61,6 @@ export type CaseGroupListResponse = DataResponse<CaseGroupListResult>;
 // 定义变量数据类型
 
 // 全局变量
-
-            // {
-            //     "id": 5,
-            //     "created": "2025-08-14T13:26:36.445156",
-            //     "updated": "2025-08-14T13:29:33.670775",
-            //     "name": "全局共享环境-百度地址",
-            //     "remark": "提供百度的官网地址。这里其实可以扩展成全局环境变量，方便查看和管理配置"
-            // },
 export interface GlobalVarInfo {
     id: number;
     created: string;
@@ -76,7 +68,6 @@ export interface GlobalVarInfo {
     name: string;
     remark: string;
 }
-
 
 // 全局变量列表返回结果
 export type GlobalVarListResult = {
@@ -92,4 +83,58 @@ export interface CreateGlobalVarRequest {
     name: string;
     remark: string;
     envir_1_host: string;
+}
+
+// HTTP方法类型
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+// 请求头/查询参数值的数据类型
+export interface ParamValueType {
+    type: string;
+    auto: boolean;
+}
+
+// 请求头项
+export interface HeaderSourceItem {
+    id: number;
+    value: string;
+    type: ParamValueType;
+    name: string;
+}
+
+// 查询参数项
+export interface QuerySourceItem {
+    id: number;
+    name: string;
+    type: ParamValueType;
+    value: string;
+}
+
+// 请求体来源
+export interface BodySourceItem {
+    name: string;
+    id: number;
+}
+
+// 添加测试步骤请求参数
+export interface AddCaseStepRequest {
+    step_name: string;         // 步骤名称
+    name: string;              // 名称
+    project_id: number;        // 项目ID
+    method: HttpMethod;        // HTTP方法
+    host: string;              // 主机地址
+    host_type: number;         // 主机类型
+    path: string;              // 请求路径
+    ban_redirects: boolean;    // 是否禁止重定向
+    header_mode: number;       // 请求头模式
+    header_source: HeaderSourceItem[]; // 请求头数据源
+    query_mode: number;        // 查询参数模式
+    query_source: QuerySourceItem[];   // 查询参数数据源
+    body_mode: number;         // 请求体模式
+    body_source?: BodySourceItem;      // 请求体数据源
+    expect_mode: number;       // 期望模式
+    expect_source: any[];      // 期望数据源
+    output_mode: number;       // 输出模式
+    output_source: any[];      // 输出数据源
+    is_case: boolean;          // 是否为测试用例
 }

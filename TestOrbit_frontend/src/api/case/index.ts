@@ -18,9 +18,14 @@ enum API {
     CASE_TEST_CLEAR_URL = '/api-data/clean-deleted-cases',
     CASE_GROUP_RUN_URL = '/api-data/run-api-cases',
 
+    // 用例组相关接口
+    // 步骤接口
+    CASE_GROUP_STEP_URL = '/api-data/api-view',
+
     // 变量相关接口
     // 全局变量
-    GLOBAL_VARIABLES = '/project/project-view'
+    GLOBAL_VARIABLES = '/project/project-view',
+    
     
 }
 
@@ -114,6 +119,17 @@ export const runCaseGroup = (caseIds: number[], envir:number): Promise<any> => {
         { case: caseIds, envir }
     )
 }
+
+
+// 用例步骤相关接口
+// 添加新步骤
+export const addCaseStep = (data:any): Promise<any> => {
+    return request.post(
+        API.CASE_GROUP_STEP_URL,
+        data
+    )
+}
+
 
 // 获取全局变量列表
 export const getGlobalVariables = (page:number = 1,page_size:number = 20): Promise< GlobalVarListResponse> => {
