@@ -20,14 +20,14 @@ from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_
 from utils.paramsDef import set_user_temp_params
 from utils.views import LimView
 from conf.models import ConfEnvir
-from config.models import Project, ProjectEnvirData
-from config.serializers import ProjectSerializer
+from config.models import Environment, ProjectEnvirData
+from config.serializers import EnvironmentSerializer
 from user.models import UserTempParams
 
 
 class ProjectView(LimView):
-    serializer_class = ProjectSerializer
-    queryset = Project.objects.order_by('-created')
+    serializer_class = EnvironmentSerializer
+    queryset = Environment.objects.order_by('-created')
 
     @staticmethod
     def get_envir_data(request, proj_id):
@@ -46,7 +46,7 @@ class ProjectView(LimView):
     def post(self, request, *args, **kwargs):
         try:
             with transaction.atomic():
-                proj = Project.objects.create(name=request.data['name'], remark=request.data.get('remark'))
+                proj = Environment.objects.create(name=request.data['name'], remark=request.data.get('remark'))
                 envir_data = self.get_envir_data(request, proj.id)
                 ProjectEnvirData.objects.bulk_create(envir_data)
                 ApiModule.objects.create(name=DEFAULT_MODULE_NAME, project_id=proj.id)
@@ -110,7 +110,7 @@ def get_project_have_envir(request):
     获取配置了指定环境参数的项目
     """
     _type = request.query_params['type']
-    pro_data = {pro['id']: {**pro, **{'disabled': True}} for pro in Project.objects.values('id', 'name')}
+    pro_data = {pro['id']: {**pro, **{'disabled': True}} for pro in Environment.objects.values('id', 'name')}
     envir_data = ProjectEnvirData.objects.filter(data__isnull=False, envir_id=1).annotate(
         name=F('project__name')).values('name', 'data', 'project_id')
 
@@ -179,7 +179,7 @@ def get_index_statistics(request):
     res_data = {
         'project_new_count': 0, 'api_count': 0, 'api_new_count': 0, 'case_count': 0, 'case_new_count': 0,
         'api_data': {}, 'case_data': {}}
-    proj_data = Project.objects.values('id', 'created').order_by('-created')
+    proj_data = Environment.objects.values('id', 'created').order_by('-created')
     api_data = ApiData.objects.annotate(project_name=F('project__name')).values('created', 'project_name')
     case_data = ApiCase.objects.annotate(creater_name=Concat(
         'creater__real_name', Value('-'), 'creater__username')).filter(

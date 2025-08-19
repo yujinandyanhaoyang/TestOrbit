@@ -3,12 +3,12 @@ from django.db import models
 from utils.comDef import get_next_id
 from utils.comModel import ComTimeModel, ComModuleModel
 from utils.constant import WAITING, USER_API
-from config.models import Project
+from config.models import Environment
 from user.models import UserEditModel
 
 
 class ApiModule(ComTimeModel, ComModuleModel):
-    project = models.ForeignKey(to=Project, default=1, verbose_name="关联项目", on_delete=models.CASCADE)
+    environment = models.ForeignKey(to=Environment, default=1, verbose_name="关联环境", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = '用例模块'
@@ -28,7 +28,7 @@ class ApiData(ComTimeModel, UserEditModel):
     path = models.CharField(max_length=255, verbose_name="接口地址")
     method = models.CharField(max_length=16, verbose_name="请求方法")
     status = models.IntegerField(default=WAITING, verbose_name="执行结果")
-    project = models.ForeignKey(to=Project, default=1, on_delete=models.PROTECT, verbose_name="所属项目")
+    project = models.ForeignKey(to=Environment, default=1, on_delete=models.PROTECT, verbose_name="所属项目")
     default_params = models.JSONField(null=True, verbose_name="默认参数")
     timeout = models.SmallIntegerField(null=True, verbose_name="接口请求超时时间")
     module = models.ForeignKey(to=ApiModule, default=1, on_delete=models.PROTECT, verbose_name="所属模块")

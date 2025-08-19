@@ -1,9 +1,9 @@
 from rest_framework import serializers
 
-from config.models import Project
+from config.models import Environment
 
 
-class ProjectSerializer(serializers.ModelSerializer):
+class EnvironmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Project
+        model = Environment
         fields = '__all__'
