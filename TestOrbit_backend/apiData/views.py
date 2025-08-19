@@ -13,14 +13,14 @@ from apiData.serializers import CaseModuleSerializer, ApiCaseListSerializer, Api
     ApiDataListSerializer, ApiCaseDetailSerializer
 from apiData.viewDef import save_api, parse_api_case_steps, run_api_case_func, ApiCasesActuator, \
     parse_create_foreach_steps, go_step, monitor_interrupt, copy_cases_func
-from comMethod.comDef import get_next_id, MyThread, get_module_related, get_case_sort_list
-from comMethod.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING, \
+from utils.comDef import get_next_id, MyThread, get_module_related, get_case_sort_list
+from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING, \
     WAITING, VAR_PARAM, INTERRUPT
-from comMethod.diyException import CaseCascaderLevelError
-from comMethod.paramsDef import set_user_temp_params
-from comMethod.report import get_api_case_step_count, report_case_count, init_step_count
-from comMethod.treeDef import create_tree, create_cascader_tree
-from comMethod.views import LimView
+from utils.diyException import CaseCascaderLevelError
+from utils.paramsDef import set_user_temp_params
+from utils.report import get_api_case_step_count, report_case_count, init_step_count
+from utils.treeDef import create_tree, create_cascader_tree
+from utils.views import LimView
 from conf.models import ConfEnvir
 from user.models import UserCfg, UserTempParams, LimUser
 

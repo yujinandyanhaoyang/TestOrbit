@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from comMethod.constant import VAR_PARAM, WAITING
+from utils.constant import VAR_PARAM, WAITING
 from conf.models import ConfEnvir, ConfParamType
 
 

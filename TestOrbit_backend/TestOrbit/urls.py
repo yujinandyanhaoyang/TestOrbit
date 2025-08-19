@@ -21,7 +21,7 @@ from TestOrbit import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('user.urls', namespace='user')),
-    path('project/', include('project.urls', namespace='project')),
+    path('project/', include('config.urls', namespace='config')),
     path('api-data/', include('apiData.urls', namespace='apiData')),
     path('conf/', include('conf.urls', namespace='conf')),
     path('put-file', views.put_file),

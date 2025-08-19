@@ -13,15 +13,15 @@ from requests import ReadTimeout
 from rest_framework.response import Response
 
 from apiData.models import ApiData, ApiCaseStep, ApiCase, ApiForeachStep
-from comMethod.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
+from utils.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
     close_db_con, json_dumps, JSONEncoder, MyThread, json_loads, format_parm_type_v
-from comMethod.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
+from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
     INTERRUPT, SKIP, API_CASE, API_FOREACH, TABLE_MODE, STRING, DIY_CFG, JSON_MODE, PY_TO_CONF_TYPE, CODE_MODE, \
     OBJECT, FAILED_STOP, WAITING, PRO_CFG, FORM_MODE, EQUAL, API_VAR, NOT_EQUAL, \
     CONTAIN, NOT_CONTAIN, TEXT_MODE, API, FORM_FILE_TYPE, FORM_TEXT_TYPE, API_SQL, RES_BODY
-from comMethod.diyException import DiyBaseException, NotFoundFileError
-from comMethod.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
-from project.models import ProjectEnvirData
+from utils.diyException import DiyBaseException, NotFoundFileError
+from utils.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
+from config.models import ProjectEnvirData
 from user.models import UserCfg, UserTempParams
 
 

@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('project', '0002_initial'),
+        ('config', '0002_initial'),
         ('apiData', '0001_initial'),
     ]
 

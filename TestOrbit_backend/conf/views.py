@@ -5,8 +5,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from comMethod.paramsDef import get_params_type_func
-from comMethod.views import LimView
+from utils.paramsDef import get_params_type_func
+from utils.views import LimView
 from conf.models import ConfEnvir
 from conf.serializers import EnvirSerializer
 

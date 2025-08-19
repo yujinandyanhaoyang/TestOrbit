@@ -1,9 +1,9 @@
 from django.db import models
 
-from comMethod.comDef import get_next_id
-from comMethod.comModel import ComTimeModel, ComModuleModel
-from comMethod.constant import WAITING, USER_API
-from project.models import Project
+from utils.comDef import get_next_id
+from utils.comModel import ComTimeModel, ComModuleModel
+from utils.constant import WAITING, USER_API
+from config.models import Project
 from user.models import UserEditModel
 
 

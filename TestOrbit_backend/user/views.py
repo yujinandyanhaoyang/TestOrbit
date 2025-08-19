@@ -9,8 +9,8 @@ from rest_framework.decorators import permission_classes, api_view
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from comMethod.constant import VAR_PARAM, HEADER_PARAM, HOST_PARAM
-from comMethod.views import LimView
+from utils.constant import VAR_PARAM, HEADER_PARAM, HOST_PARAM
+from utils.views import LimView
 from user.models import LimUser, UserCfg, UserTempParams
 from user.serializers import UserSerializer
 

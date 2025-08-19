@@ -53,7 +53,7 @@ CORS_ALLOW_METHODS = (
 # 跨域设置 end---
 INSTALLED_APPS = [
     'user',
-    'project',
+    'config',
     'apiData',
     'conf',
     'django.contrib.admin',

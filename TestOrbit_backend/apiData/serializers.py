@@ -2,8 +2,8 @@ from rest_framework import serializers
 
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep, ApiData
 from apiData.viewDef import set_foreach_tree
-from comMethod.comSerializers import ComEditUserNameSerializer
-from comMethod.constant import API_FOREACH, API
+from utils.comSerializers import ComEditUserNameSerializer
+from utils.constant import API_FOREACH, API
 
 
 class CaseModuleSerializer(serializers.ModelSerializer):

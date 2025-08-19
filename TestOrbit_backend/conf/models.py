@@ -1,5 +1,5 @@
 from django.db import models
-from comMethod.comModel import ConfModel
+from utils.comModel import ConfModel
 
 
 class ConfEnvir(ConfModel):
