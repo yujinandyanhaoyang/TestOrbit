@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('conf', '0001_initial'),
+        ('project', '0001_initial'),
     ]
 
     operations = [

@@ -21,7 +21,7 @@ from utils.paramsDef import set_user_temp_params
 from utils.report import get_api_case_step_count, report_case_count, init_step_count
 from utils.treeDef import create_tree, create_cascader_tree
 from utils.views import LimView
-from conf.models import ConfEnvir
+from project.models import Project
 from user.models import UserCfg, UserTempParams, LimUser
 
 
@@ -360,7 +360,7 @@ def get_api_report(request):
         id=request.query_params['case_id']).values('name', 'report_data').first() or {}
     report_data = case_data.get('report_data')
     if report_data:
-        envir_name = ConfEnvir.objects.filter(id=report_data['envir']).values_list('name', flat=True).first()
+        envir_name = Project.objects.filter(id=report_data['envir']).values_list('name', flat=True).first()
         report_data.update(
             {'case_count': 0, 'envir_name': envir_name, 'name': case_data['name'], 'step_count': init_step_count(),
              'cases': {}})

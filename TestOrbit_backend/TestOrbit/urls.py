@@ -23,6 +23,6 @@ urlpatterns = [
     path('user/', include('user.urls', namespace='user')),
     path('project/', include('config.urls', namespace='config')),
     path('api-data/', include('apiData.urls', namespace='apiData')),
-    path('conf/', include('conf.urls', namespace='conf')),
+    path('conf/', include('project.urls', namespace='project')),
     path('put-file', views.put_file),
 ]

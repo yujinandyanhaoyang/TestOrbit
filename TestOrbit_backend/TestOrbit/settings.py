@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     'user',
     'config',
     'apiData',
-    'conf',
+    'project',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='apidata',
             name='project',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.PROTECT, to='project.project', verbose_name='所属项目'),
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.PROTECT, to='project.confenvir', verbose_name='所属项目'),
         ),
         migrations.AddField(
             model_name='apidata',

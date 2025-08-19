@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('conf', '0002_initial'),
+        ('project', '0002_initial'),
         ('apiData', '0002_initial'),
         ('auth', '0012_alter_user_first_name_max_length'),
         ('user', '0001_initial'),
@@ -55,7 +55,7 @@ class Migration(migrations.Migration):
                 ('step_name', models.CharField(max_length=255, verbose_name='参数来源步骤名')),
                 ('type', models.SmallIntegerField(default=3, verbose_name='请求数据类别（header、var、host）')),
                 ('case', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='apiData.apicase', verbose_name='参数来源的用例')),
-                ('param_type', models.ForeignKey(default='string', on_delete=django.db.models.deletion.PROTECT, to='conf.confparamtype', verbose_name='变量值的类型')),
+                ('param_type', models.ForeignKey(default='string', on_delete=django.db.models.deletion.PROTECT, to='project.confparamtype', verbose_name='变量值的类型')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='关联用户')),
             ],
             options={
@@ -70,7 +70,7 @@ class Migration(migrations.Migration):
                 ('failed_stop', models.BooleanField(default=True, verbose_name='执行失败是否停止（跳过）执行')),
                 ('only_failed_log', models.BooleanField(default=False, verbose_name='仅记录失败的日志')),
                 ('exec_status', models.SmallIntegerField(default=0, verbose_name='执行状态')),
-                ('envir', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='conf.confenvir', verbose_name='默认用户环境')),
+                ('envir', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='project.confenvir', verbose_name='默认用户环境')),
             ],
             options={
                 'verbose_name': '用户配置数据',

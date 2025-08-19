@@ -9,13 +9,12 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('conf', '0002_initial'),
         ('config', '0001_initial'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Project',
+            name='ConfEnvir',
             fields=[
                 ('created', models.DateTimeField(auto_now_add=True, verbose_name='创建时间')),
                 ('updated', models.DateTimeField(auto_now=True, null=True, verbose_name='修改时间')),
@@ -33,8 +32,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.SmallAutoField(primary_key=True, serialize=False)),
                 ('data', models.JSONField(null=True, verbose_name='环境配置项')),
-                ('envir', models.ForeignKey(default=1, on_delete=django.db.models.deletion.PROTECT, related_name='pro_data_envir', to='conf.confenvir', verbose_name='关联环境')),
-                ('project', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='project.project', verbose_name='关联项目')),
+                ('envir', models.ForeignKey(default=1, on_delete=django.db.models.deletion.PROTECT, related_name='pro_data_envir', to='config.confenvir', verbose_name='关联环境')),
+                ('project', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='project.confenvir', verbose_name='关联项目')),
             ],
             options={
                 'verbose_name': '项目表',

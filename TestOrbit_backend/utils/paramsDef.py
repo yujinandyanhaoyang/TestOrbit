@@ -7,7 +7,7 @@ from django.db.models import Q
 from utils.comDef import SavePrintContent
 from utils.constant import HEADER_PARAM, VAR_PARAM, HOST_PARAM
 from utils.diyException import DiyBaseException
-from conf.models import ConfParamType
+from project.models import ProjectParamType
 from user.models import UserTempParams
 
 
@@ -16,7 +16,7 @@ def get_params_type_func():
     """
     获取参数类型
     """
-    return ConfParamType.objects.values('id', 'name')
+    return ProjectParamType.objects.values('id', 'name')
 
 
 def get_parm_v_by_temp(name_list, base_params, i=0):

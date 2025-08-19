@@ -1,7 +1,7 @@
 from django.db import models
 
 from utils.comModel import ComTimeModel
-from conf.models import ConfEnvir
+from project.models import Project
 
 
 class Environment(ComTimeModel):
@@ -17,8 +17,8 @@ class Environment(ComTimeModel):
 class ProjectEnvirData(models.Model):
     id = models.SmallAutoField(primary_key=True)
     envir = models.ForeignKey(
-        to=ConfEnvir, default=1, related_name='pro_data_envir', on_delete=models.PROTECT, verbose_name="关联环境")
-    project = models.ForeignKey(to=Environment, default=1, on_delete=models.CASCADE, verbose_name="关联项目")
+        to=Environment, default=1, related_name='pro_data_envir', on_delete=models.PROTECT, verbose_name="关联环境")
+    project = models.ForeignKey(to=Project, default=1, on_delete=models.CASCADE, verbose_name="关联项目")
     data = models.JSONField(null=True, verbose_name="环境配置项")
 
     class Meta:

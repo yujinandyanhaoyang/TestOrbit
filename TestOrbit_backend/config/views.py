@@ -19,7 +19,7 @@ from utils.comDef import db_connect, get_proj_envir_db_data, close_db_con
 from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_SQL, VAR_PARAM
 from utils.paramsDef import set_user_temp_params
 from utils.views import LimView
-from conf.models import ConfEnvir
+from project.models import Project
 from config.models import Environment, ProjectEnvirData
 from config.serializers import EnvironmentSerializer
 from user.models import UserTempParams
@@ -93,7 +93,7 @@ def get_project_envir_data(request):
     获取项目环境配置
     """
     project_id = request.query_params.get('id')
-    envir = ConfEnvir.objects.annotate(data=Value([], output_field=JSONField())).values('id', 'name', 'data')
+    envir = Project.objects.annotate(data=Value([], output_field=JSONField())).values('id', 'name', 'data')
     if project_id:
         envir = {v['id']: v for v in envir}
         pro_envir = ProjectEnvirData.objects.filter(

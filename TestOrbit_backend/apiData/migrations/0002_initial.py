@@ -92,7 +92,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=100, verbose_name='模块名称')),
                 ('module_related', models.JSONField(default=[], verbose_name='所属模块级联关系（父子级）')),
                 ('parent', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='apiData.apimodule', verbose_name='父模块')),
-                ('project', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='project.project', verbose_name='关联项目')),
+                ('project', models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='project.confenvir', verbose_name='关联项目')),
             ],
             options={
                 'verbose_name': '用例模块',
