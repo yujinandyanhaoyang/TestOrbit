@@ -10,32 +10,6 @@
         <el-icon class="el-icon--left"><Plus /></el-icon>
         新建用例
       </el-button>
-      
-      <!-- 示例按钮：打开特定用例的详情 -->
-      <el-button 
-        type="success" 
-        size="small" 
-        @click="addTab('用例详情', '', 123, 'CaseDetail')"
-      >
-        打开用例 #123
-      </el-button>
-      
-      <el-button 
-        type="info" 
-        size="small" 
-        @click="openCaseGroup(456)"
-      >
-        打开用例组 #456
-      </el-button>
-      
-      <!-- 打开测试报告的按钮 -->
-      <el-button 
-        type="warning" 
-        size="small" 
-        @click="openTestReport(789)"
-      >
-        查看测试报告
-      </el-button>
     </div>
   </div>
   <el-tabs
@@ -86,14 +60,12 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, shallowRef, defineAsyncComponent } from 'vue'
+import { ref } from 'vue'
 // 使用新的自定义组件
-import CasesList from './CaseGroupList.vue'
-import CaseDetail from './CaseGroup/caseDetail.vue'
-import TestReport from './CaseGroup/testReport.vue'
-import CaseGroup from './CaseGroup/index.vue'
+import CasesList from './caseGroupList.vue'
+import TestReport from './caseGroup/testReport.vue'
+import CaseGroupDetail from './caseGroup/index.vue'
 import { Plus } from '@element-plus/icons-vue'
-
 import type { TabPaneName } from 'element-plus'
 
 // 定义标签页项目的类型
@@ -112,12 +84,7 @@ let tabIndex = 0
 const editableTabsValue = ref('cases')
 // 可编辑的动态标签列表（不包括第一个固定标签）
 const editableTabs = ref<TabItem[]>([
-  // 这里可以预设一些标签，也可以一开始为空
-  // {
-  //   title: '用例详情',
-  //   name: '1',
-  //   content: '用例详情内容',
-  // }
+
 ])
 
 /**
@@ -219,11 +186,10 @@ const removeTab = (targetName: TabPaneName) => {
  * @returns 对应的组件
  */
 const resolveComponent = (componentName: string) => {
-  // 这里可以使用一个映射表来管理所有可能用到的组件
+  // 使用一个映射表来管理所有可能用到的组件
   const componentMap: Record<string, any> = {
-    'CaseDetail': CaseDetail,
-    'TestReport': TestReport,
-    'CaseGroup': CaseGroup,
+    'CaseGroupDetail': CaseGroupDetail,  // 用例组详情组件
+    'TestReport': TestReport,            // 测试报告组件
     // 可以添加更多组件...
   }
 
@@ -235,8 +201,9 @@ const resolveComponent = (componentName: string) => {
  * @param caseId 要打开的用例ID
  */
 const handleOpenCaseDetail = (caseId: number) => {
-  // 调用addTab方法，传入用例ID和组件名
-  addTab('用例详情', '', caseId, 'CaseDetail')
+  // 调用openCaseGroup方法，传入用例ID
+  // console.log('打开用例详情(Cases/index):', caseId);
+  openCaseGroup(caseId)
 }
 
 /**
@@ -254,9 +221,11 @@ const openTestReport = (reportId: number) => {
  */
 const openCaseGroup = (groupId: number) => {
   // 使用通用的addTab方法打开用例组
-  addTab('用例组', '', groupId, 'CaseGroup', { groupId })
+  addTab('用例组', '', groupId, 'CaseGroupDetail', { groupId })
 }
 </script>
+
+
 
 <style scoped>
 .page-header {

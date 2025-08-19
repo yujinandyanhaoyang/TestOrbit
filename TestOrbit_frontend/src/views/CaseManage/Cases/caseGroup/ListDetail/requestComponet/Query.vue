@@ -91,7 +91,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, defineEmits, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Delete, Plus, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
@@ -107,20 +107,7 @@ interface queryItem {
 const emit = defineEmits(['update:querys']);
 
 // 初始化query数据
-const querys = ref<queryItem[]>([
-  {
-    key: 'Querys1',
-    value: '水果',
-    remark: '品类',
-    enabled: true,
-  },
-  {
-    key: 'Querys2',
-    value: '苹果',
-    remark: '细分品类',
-    enabled: false,
-  },
-]);
+const querys = ref<queryItem[]>([]);
 
 // 批量编辑相关
 const showBulkEditDialog = ref(false);

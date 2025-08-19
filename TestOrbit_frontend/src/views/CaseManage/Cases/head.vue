@@ -38,7 +38,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, defineEmits, defineProps } from 'vue'
+import { ref } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 
 // 定义组件事件

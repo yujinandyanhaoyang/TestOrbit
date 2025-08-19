@@ -87,8 +87,8 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { Delete, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import type { CaseGroupInfo } from '@/api/case/types'
-import { getCaseGroupList, RestoreCaseGroup,RealDeleteCaseGroup,ClearCaseGroup } from '@/api/case'
+import type { CaseGroupInfo } from '@/api/case/caseGroup/types'
+import { getCaseGroupList, RestoreCaseGroup,RealDeleteCaseGroup,ClearCaseGroup } from '@/api/case/caseGroup'
 
 
 // 抽屉控制

@@ -20,13 +20,18 @@
 
 <script lang="ts" setup>
 // 引入自定义组件
-import { ref, defineEmits } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import Header from './requestComponet/Header.vue'
 import Query from './requestComponet/Query.vue'
 import Body from './requestComponet/Body.vue'
 import BeforeProcessor from './requestComponet/BeforeProcessor.vue'
 import AfterProcessor from './requestComponet/AfterProcessor.vue'
-import type { HeaderSourceItem, QuerySourceItem } from '@/api/case/types';
+import type { HeaderSourceItem, QuerySourceItem, ApiStepParams } from '@/api/case/caseStep/types';
+
+// 定义props
+const props = defineProps<{
+  stepParams?: ApiStepParams;
+}>();
 
 // 定义事件
 const emit = defineEmits(['update:requestConfig']);
@@ -40,6 +45,43 @@ const requestConfig = ref({
   beforeScript: '',
   afterScript: ''
 });
+
+// 当接收到步骤参数时，初始化请求配置
+onMounted(() => {
+  if (props.stepParams) {
+    initRequestConfig(props.stepParams);
+  }
+});
+
+// 监听步骤参数变化
+watch(() => props.stepParams, (newParams) => {
+  if (newParams) {
+    console.log('ParamCard接收到新的步骤参数:', newParams);
+    initRequestConfig(newParams);
+  }
+}, { deep: true });
+
+// 初始化请求配置
+const initRequestConfig = (params: ApiStepParams) => {
+  if (params.header_source) {
+    requestConfig.value.headers = params.header_source;
+  }
+  if (params.query_source) {
+    requestConfig.value.querys = params.query_source;
+  }
+  if (params.body_source) {
+    requestConfig.value.body = params.body_source;
+  }
+  if (params.before_script) {
+    requestConfig.value.beforeScript = params.before_script;
+  }
+  if (params.after_script) {
+    requestConfig.value.afterScript = params.after_script;
+  }
+  
+  // 通知子组件更新
+  emitUpdate();
+};
 
 // 更新请求头
 const updateHeaders = (headers: Record<string, string>) => {

@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, defineEmits } from 'vue';
+import { ref, watch, onMounted} from 'vue';
 import { Document } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
@@ -66,7 +66,7 @@ const emit = defineEmits(['update:body', 'update:contentType']);
 // 内容类型
 const contentType = ref('json');
 // JSON编辑器内容
-const jsonContent = ref('{\n  "key": "value"\n}');
+const jsonContent = ref('{}');
 // JSON验证状态
 const isValidJson = ref(true);
 // JSON错误信息

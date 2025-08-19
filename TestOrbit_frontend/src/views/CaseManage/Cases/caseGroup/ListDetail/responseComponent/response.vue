@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineProps } from 'vue';
+import { ref, computed} from 'vue';
 import { ElMessage } from 'element-plus';
 
 // 定义响应数据接口

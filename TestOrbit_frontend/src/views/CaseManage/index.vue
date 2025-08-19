@@ -23,7 +23,7 @@
 //引入组件
 import Folder from './CombineFolder/CaseTree.vue'
 import Recycle from './Cases/recyclePage.vue'
-import PageManage from './Cases/pageManage.vue'
+import PageManage from './Cases/index.vue'
 
 </script>
 

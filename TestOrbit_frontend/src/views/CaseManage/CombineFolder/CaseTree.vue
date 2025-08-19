@@ -83,9 +83,9 @@ import { getCaseFolderTree,
         createTestModule, 
         updateTestModule, 
         deleteTestModule ,
-      } from '@/api/case'
-import { convertToElTreeData } from '@/api/case/types'
-import type { ElTreeNode, TestModuleNode } from '@/api/case/types'
+      } from '@/api/case/module/index'
+import { convertToElTreeData } from '@/api/case/module/types'
+import type { ElTreeNode, TestModuleNode } from '@/api/case/module/types'
 import { useCaseModuleStore } from '@/store/caseModule'
 
 // 树数据

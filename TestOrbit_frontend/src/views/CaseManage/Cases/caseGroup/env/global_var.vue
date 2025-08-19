@@ -76,8 +76,8 @@
 <script lang="ts" setup>
 import { onMounted, ref, reactive } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getGlobalVariables,addGlobalVariables,updateGlobalVariables,deleteGlobalVariables } from '@/api/case';
-import type { GlobalVarInfo,CreateGlobalVarRequest } from '@/api/case/types';
+import { getGlobalVariables,addGlobalVariables,updateGlobalVariables,deleteGlobalVariables } from '@/api/case/caseStep';
+import type { GlobalVarInfo,CreateGlobalVarRequest } from '@/api/case/caseStep/types';
 import type { FormRules, FormInstance } from 'element-plus';
 
 // 定义下拉选项的接口

@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineEmits, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 
 // 定义事件
 const emit = defineEmits(['update:afterScript']);

@@ -91,7 +91,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, defineEmits, onMounted } from 'vue';
+import { ref,  onMounted } from 'vue';
 import { Delete, Plus, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
@@ -107,20 +107,7 @@ interface HeaderItem {
 const emit = defineEmits(['update:headers']);
 
 // 初始化header数据
-const headers = ref<HeaderItem[]>([
-  {
-    key: 'Content-Type',
-    value: 'application/json',
-    remark: '指定请求体的内容类型',
-    enabled: true,
-  },
-  {
-    key: 'Authorization',
-    value: 'Bearer token',
-    remark: '身份验证token',
-    enabled: false,
-  },
-]);
+const headers = ref<HeaderItem[]>([]);
 
 // 批量编辑相关
 const showBulkEditDialog = ref(false);

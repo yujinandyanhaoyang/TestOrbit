@@ -34,7 +34,7 @@
         <template #default="scope">
           <el-button type="primary"  size="small" @click="handleRun(scope.row.id)">执行</el-button>
           <el-button type="info"  size="small" @click="openCaseDetail(scope.row.id)">编辑</el-button>
-          <el-button type="copy"  size="small" @click="handleCopy(scope.row.id)">复制</el-button>
+          <el-button   size="small" @click="handleCopy(scope.row.id)">复制</el-button>
           <el-button type="success"  size="small" @click="openTestReport(scope.row.id)">报告</el-button>
           <el-button type="danger"  size="small" @click="handleDelete(scope.row.id)">删除</el-button>
         </template>
@@ -60,8 +60,8 @@ import { ref, onMounted, watch } from 'vue'
 import type { TableInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import type { CaseGroupInfo, CaseGroupListResponse } from '@/api/case/types'
-import { getCaseGroupList, DeleteCaseGroup, CopyCaseGroup,runCaseGroup } from '@/api/case'
+import type { CaseGroupInfo, CaseGroupListResponse } from '@/api/case/caseGroup/types'
+import { getCaseGroupList, DeleteCaseGroup, CopyCaseGroup,runCaseGroup } from '@/api/case/caseGroup'
 // 使用 Pinia store 管理模块ID
 import { useCaseModuleStore } from '@/store/caseModule'
 
@@ -282,6 +282,7 @@ const handleBatchRun = async () => {
 
 // 打开用例详情（集成到父组件中的标签系统）
 const openCaseDetail = (caseId: number) => {
+  // console.log('打开用例详情(caseGroupList):', caseId);
   emit('openCaseDetail', caseId)
 }
 
