@@ -9,7 +9,7 @@ import type { GetProjectInfoResponse } from './types'
 enum API {
 
     // 项目接口
-    PROJECTLIST_URL = '/conf/envir-view',
+    PROJECTLIST_URL = '/project/project-view',
 
 }
 

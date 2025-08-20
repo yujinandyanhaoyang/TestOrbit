@@ -98,8 +98,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { addProject,getProjectList,editProject,deleteProject } from '@/api/user'
-import type { ProjectInfo } from '@/api/user/types'
+import { addProject,getProjectList,editProject,deleteProject } from '@/api/project'
+import type { ProjectInfo } from '@/api/project/types'
 
 // 使用ref并指定类型
 const projectList = ref<ProjectInfo[]>([])

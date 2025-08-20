@@ -14,7 +14,7 @@ enum API {
 
     // 变量相关接口
     // 全局变量
-    GLOBAL_VARIABLES = '/project/project-view',
+    GLOBAL_VARIABLES = '/config/env-view',
 }
 
 
