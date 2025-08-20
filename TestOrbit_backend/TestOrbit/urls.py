@@ -21,8 +21,14 @@ from TestOrbit import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('user.urls', namespace='user')),
-    path('project/', include('config.urls', namespace='config')),
     path('api-data/', include('apiData.urls', namespace='apiData')),
-    path('conf/', include('project.urls', namespace='project')),
+
     path('put-file', views.put_file),
+
+    # 旧接口，保留，兼容已有前端
+    path('project/', include('config.urls', namespace='config_old')),
+    path('conf/', include('project.urls', namespace='project_old')),
+    # 新接口 解决历史名称错配技术债
+    path('config/', include('config.urls', namespace='config')),
+    path('project/', include('project.urls', namespace='project'))
 ]

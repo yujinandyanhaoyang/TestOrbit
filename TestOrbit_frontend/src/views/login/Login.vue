@@ -34,7 +34,7 @@ const userStore = useUserStore()
 //默认初始化登录表单
 const userInfo = ref({
   username: 'admin',
-  password: '123456'
+  password: 'admin'
 });
 
 //登录功能

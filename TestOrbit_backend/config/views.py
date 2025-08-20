@@ -1,7 +1,7 @@
 import datetime
 import time
 
-from django.db import transaction, IntegrityError
+from django.db import transaction
 from django.db.models import F, Value, JSONField
 from django.db.models.functions import Concat
 
@@ -25,7 +25,11 @@ from config.serializers import EnvironmentSerializer
 from user.models import UserTempParams
 
 
-class ProjectView(LimView):
+class EnvironmentView(LimView):
+    """
+    环境配置视图类
+    处理环境配置的创建、列表、修改和删除
+    """
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.order_by('-created')
 
@@ -52,7 +56,7 @@ class ProjectView(LimView):
                 ApiModule.objects.create(name=DEFAULT_MODULE_NAME, project_id=proj.id)
         except Exception as e:
             if '1062' in str(e):
-                return Response({'msg': '已存在同名项目！'}, status=status.HTTP_400_BAD_REQUEST, headers={})
+                return Response({'msg': '已存在同名环境！'}, status=status.HTTP_400_BAD_REQUEST, headers={})
             return Response(data={'msg': f"执行出错:{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(data={'msg': '创建成功！', 'id': proj.id})
 
@@ -68,7 +72,7 @@ class ProjectView(LimView):
 
 
 @api_view(['GET'])
-def project_overview(request):
+def environment_overview(request):
     """
     项目概览页
     """

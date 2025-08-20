@@ -12,12 +12,25 @@ from project.serializers import ProjectSerializer
 
 
 class ProjectView(LimView):
+    """
+    项目视图类
+    处理项目的创建、列表、修改和删除
+    """
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
 
     def post(self, request, *args, **kwargs):
         max_id = (Project.objects.aggregate(Max('position')).get('position__max') or 0)
         request.data['position'] = max_id + 1
+        
+        # 确保处理 creater 字段，由于 Project 不需要这个字段
+        if 'creater' in request.data:
+            del request.data['creater']
+        
+        # 创建时间字段由模型自动填充，不需要手动设置
+        if 'created' in request.data:
+            del request.data['created']
+            
         return self.create(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):

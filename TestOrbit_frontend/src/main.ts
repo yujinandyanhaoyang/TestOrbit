@@ -19,13 +19,29 @@ import './assets/style/reset.scss'
 
 import App from './App.vue'
 import router from './router'
-// 导入路由权限控制
+import useUserStore from '@/store/user'
+// 提前导入路由权限控制
 import '@/utils/permission'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+
+// 创建一个函数在应用挂载后清除用户状态
+const resetUserState = () => {
+  try {
+    const userStore = useUserStore()
+    // 只清除 localStorage，而不设置 store 状态为 null
+    localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+  } catch (error) {
+    console.error('重置用户状态时出错：', error)
+  }
+}
+
+// 在应用挂载前清空本地存储
+resetUserState()
 
 //挂载自己添加的组件
 app.use(ElementPlus, {

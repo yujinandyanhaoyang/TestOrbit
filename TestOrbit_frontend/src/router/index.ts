@@ -20,11 +20,6 @@ const router = createRouter({
       component: () => import('@/views/Home/HomePage.vue'),
       children: [
         // 子路由将在HomePage的router-view中显示
-        //子路由重定向
-        {
-          path: '/home',
-          redirect: '/ProjectManage'
-        },
         {
           path: '/ProjectManage',
           component: () => import('@/views/ProjectManage/index.vue')

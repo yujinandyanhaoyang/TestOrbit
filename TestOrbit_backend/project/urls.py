@@ -5,9 +5,13 @@ from project import views
 app_name = "project"
 
 urlpatterns = [
-    # 注释掉不存在的视图引用
+    # 旧接口保留，兼容已有前端
     path('envir-view', views.ProjectView.as_view()),
     path('param-type', views.get_param_type),
-    # 注释掉不存在的视图函数
-    # path('change-envir-position', views.change_envir_position),
+    path('change-envir-position', views.change_project_position),
+
+    # 新接口
+    path('project-view', views.ProjectView.as_view()),
+    path('change-project-position',  views.change_project_position),
+    path('get-param-type', views.get_param_type),
 ]

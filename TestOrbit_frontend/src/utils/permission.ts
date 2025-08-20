@@ -9,6 +9,24 @@ const whiteList = ['/login'];
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore();
   
+  // 添加一个标记用来确定应用是否刚刚启动
+  // 如果是首次加载应用，则重定向到登录页
+  const isFirstLoad = sessionStorage.getItem('hasLoaded') !== 'true';
+  if (isFirstLoad) {
+    // 标记应用已加载
+    sessionStorage.setItem('hasLoaded', 'true');
+    
+    // 清除本地存储，但不直接修改 store 状态
+    localStorage.removeItem('token');
+    localStorage.removeItem('userInfo');
+    
+    // 如果不是登录页，则重定向到登录页
+    if (to.path !== '/login') {
+      next('/login');
+      return;
+    }
+  }
+  
   // 判断用户是否已登录（是否有token）
   if (userStore.isLoggedIn) {
     // 已登录状态下访问登录页，则重定向到首页

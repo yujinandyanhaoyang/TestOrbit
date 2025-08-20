@@ -23,6 +23,7 @@ class LimView(mixins.ListModelMixin,
         Runs anything that needs to occur prior to calling the method handler.
         """
         if (method := request.method) == 'POST':
+            # 注意：Project 模型没有 creater 字段，但在 ProjectView 中有特殊处理
             request.data.update({'creater': request.user.id, 'created': datetime.datetime.now()})
         elif method in ['PUT', 'PATCH']:
             request.data.update({'updater': request.user.id, 'updated': datetime.datetime.now()})

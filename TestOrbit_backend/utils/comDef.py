@@ -15,7 +15,7 @@ from sshtunnel import SSHTunnelForwarder
 
 from utils.constant import MYSQL, FAILED, SUCCESS, HEADER_PARAM, VAR_PARAM, HOST_PARAM, STRING
 from utils.diyException import DiyBaseException
-from project.models import ProjectParamType, ConfParamType
+from project.models import ProjectParamType
 from config.models import ProjectEnvirData
 from user.models import UserCfg, UserTempParams
 
