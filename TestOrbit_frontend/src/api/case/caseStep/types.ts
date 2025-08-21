@@ -24,7 +24,7 @@ export type GlobalVarListResponse = DataResponse<GlobalVarListResult>;
 export interface CreateGlobalVarRequest {
     name: string;
     remark: string;
-    envir_1_host: string;
+    url: string;
 }
 
 // HTTP方法类型
@@ -62,7 +62,7 @@ export interface BodySourceItem {
 export interface AddCaseStepRequest {
     step_name: string;         // 步骤名称
     name: string;              // 名称
-    project_id: number;        // 项目ID
+    env_id: number;        // 项目ID
     method: HttpMethod;        // HTTP方法
     host: string;              // 主机地址
     host_type: number;         // 主机类型

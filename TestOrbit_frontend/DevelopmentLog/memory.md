@@ -74,7 +74,7 @@ export interface HeaderSourceItem {
 export interface AddCaseStepRequest {
     step_name: string;
     name: string;
-    project_id: number;
+    env_id: number;
     method: HttpMethod;
     host: string;
     host_type: number;

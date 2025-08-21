@@ -24,7 +24,7 @@
     <el-table :data="tableData" stripe style="width: 100%">
     <el-table-column type="index" label="序号" width="80" align="center" />
     <el-table-column prop="name" label="环境名称" width="180" />
-    <el-table-column prop="name" label="URL(待后端改造，暂时用name占位)" width="180" />
+    <el-table-column prop="url" label="URL(待后端改造，暂时用name占位)" width="180" />
     <el-table-column prop="created" label="创建时间" />
     <el-table-column prop="remark" label="描述" />
     <el-table-column
@@ -51,8 +51,8 @@
       <el-form-item label="环境名称" prop="name">
         <el-input v-model="currentVar.name" placeholder="请输入环境名称" />
       </el-form-item>
-      <el-form-item label="环境地址" prop="envir_1_host">
-        <el-input v-model="currentVar.envir_1_host" placeholder="请输入环境地址，例如: http://example.com" />
+      <el-form-item label="环境地址" prop="url">
+        <el-input v-model="currentVar.url" placeholder="请输入环境地址，例如: http://example.com" />
       </el-form-item>
       <el-form-item label="描述" prop="remark">
         <el-input 
@@ -143,7 +143,7 @@ const rules = reactive<FormRules>({
     { required: true, message: '请输入环境名称', trigger: 'blur' },
     { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
   ],
-  envir_1_host: [
+  url: [
     { required: true, message: '请输入环境地址', trigger: 'blur' },
     { 
       pattern: /^(http|https):\/\/[^ "]+$/,
@@ -165,7 +165,7 @@ const handleAdd = () => {
     currentVar.value = {
         name: '',
         remark: '',
-        envir_1_host: ''
+        url: ''
     };
     dialogVisible.value = true;
 };

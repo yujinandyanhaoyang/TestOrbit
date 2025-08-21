@@ -23,7 +23,7 @@ urlpatterns = [
     path('user/', include('user.urls', namespace='user')),
     path('api-data/', include('apiData.urls', namespace='apiData')),
     path('put-file', views.put_file),
-    # 新调整 解决历史名称错配技术债
+    # 新调整 解决历史项目名称错配技术债
     path('config/', include('config.urls', namespace='config')),
     path('project/', include('project.urls', namespace='project'))
 ]

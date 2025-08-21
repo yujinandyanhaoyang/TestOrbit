@@ -216,7 +216,7 @@ const handleSave = async () => {
     const requestData: AddCaseStepRequest = {
       step_name: stepName.value,
       name: stepName.value,
-      project_id: projectId.value,
+      env_id: projectId.value,
       method: method.value,
       host: UrlInput.value.trim(),
       host_type: 1, // 默认值，根据实际情况调整
@@ -286,7 +286,7 @@ const handleRun = async () => {
     const paramsData = {
       step_name: stepName.value,
       name: stepName.value,
-      project_id: projectId.value,
+      env_id: projectId.value,
       method: method.value,
       timeout: null, // 根据示例添加
       host: UrlInput.value.trim(),

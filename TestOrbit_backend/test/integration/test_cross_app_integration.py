@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 
 # 导入所有需要的模型
 from project.models import Project, ProjectParamType
-from config.models import Environment, ProjectEnvirData
+from config.models import Environment  # 移除 ProjectEnvirData 导入，因为该模型已被删除
 from apiData.models import ApiModule, ApiData, ApiCaseModule, ApiCase, ApiCaseStep
 from user.models import LimUser
 from utils.constant import WAITING
@@ -33,18 +33,14 @@ class CrossAppIntegrationTest(TestCase):
             position=1
         )
         
-        # 创建测试环境
+        # 创建测试环境（现在直接包含 URL 信息）
         self.environment = Environment.objects.create(
             name="集成测试环境",
-            remark="用于集成测试的环境"
+            remark="用于集成测试的环境",
+            url="http://test.example.com"  # 直接在 Environment 中存储 URL
         )
         
-        # 创建项目环境数据
-        self.envir_data = ProjectEnvirData.objects.create(
-            envir=self.environment,
-            project=self.project,
-            data={"base_url": "http://test.example.com"}
-        )
+        # 注意：不再需要 ProjectEnvirData，环境数据直接存储在 Environment 模型中
         
         # 创建API模块
         self.api_module = ApiModule.objects.create(
@@ -101,10 +97,9 @@ class CrossAppIntegrationTest(TestCase):
     
     def test_project_environment_integration(self):
         """测试项目和环境之间的集成"""
-        # 验证环境数据正确关联到项目
-        env_data = ProjectEnvirData.objects.filter(project=self.project).first()
-        self.assertEqual(env_data.envir, self.environment)
-        self.assertEqual(env_data.data.get("base_url"), "http://test.example.com")
+        # 验证环境数据正确创建（现在环境是独立的，不再与特定项目绑定）
+        self.assertEqual(self.environment.name, "集成测试环境")
+        self.assertEqual(self.environment.url, "http://test.example.com")
     
     def test_project_api_integration(self):
         """测试项目和API之间的集成"""
@@ -140,14 +135,12 @@ class DataFlowIntegrationTest(TestCase):
         self.client.login(username="flowuser", password="password123")
         
         self.project = Project.objects.create(name="数据流项目")
-        self.environment = Environment.objects.create(name="数据流环境")
-        
-        # 创建环境数据
-        self.env_data = ProjectEnvirData.objects.create(
-            project=self.project,
-            envir=self.environment,
-            data={"host": "api.example.com", "port": 443}
+        self.environment = Environment.objects.create(
+            name="数据流环境",
+            url="https://api.example.com:443"  # 直接在 Environment 中存储 URL 信息
         )
+        
+        # 注意：不再需要 ProjectEnvirData，环境数据直接存储在 Environment 模型中
         
         # 创建API模块
         self.api_module = ApiModule.objects.create(
@@ -201,14 +194,13 @@ class DataFlowIntegrationTest(TestCase):
         self.assertEqual(self.step.api.module.project, self.project)
         self.assertEqual(self.step.case.creater, self.user)
         
-        # 验证环境数据可以用于API执行
-        env_data = ProjectEnvirData.objects.get(project=self.project, envir=self.environment)
+        # 验证环境数据可以用于API执行（现在直接从 Environment 获取）
         api = self.step.api
         
         # 模拟数据流：环境数据 + API数据 -> API执行
+        # 现在环境 URL 直接存储在 Environment.url 字段中
         execution_data = {
-            "host": env_data.data.get("host"),
-            "port": env_data.data.get("port"),
+            "base_url": self.environment.url,  # 直接从 Environment 获取 URL
             "path": api.path,
             "method": api.method,
             "headers": api.default_params.get("headers", {}),

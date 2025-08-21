@@ -189,7 +189,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',  # 控制台输出日志级别
             'class': 'logging.StreamHandler',
         },
         # 输出文件
@@ -198,7 +198,7 @@ LOGGING = {
         'django.db.backends': {
             'handlers': ['console'],
             'propagate': True,
-            'level': 'DEBUG',
+            'level': 'INFO',  # 从 DEBUG 改为 INFO，不再显示 SQL 查询
         },
     }
 }

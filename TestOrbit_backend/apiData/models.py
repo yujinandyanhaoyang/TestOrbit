@@ -5,6 +5,7 @@ from utils.comModel import ComTimeModel, ComModuleModel
 from utils.constant import WAITING, USER_API
 from project.models import Project
 from user.models import UserEditModel
+from config.models import Environment
 
 
 class ApiModule(ComTimeModel, ComModuleModel):
@@ -28,16 +29,16 @@ class ApiData(ComTimeModel, UserEditModel):
     path = models.CharField(max_length=255, verbose_name="接口地址")
     method = models.CharField(max_length=16, verbose_name="请求方法")
     status = models.IntegerField(default=WAITING, verbose_name="执行结果")
-    project = models.ForeignKey(to=Project, default=1, on_delete=models.PROTECT, verbose_name="所属项目")
+    env = models.ForeignKey(to=Environment, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="关联环境")
     default_params = models.JSONField(null=True, verbose_name="默认参数")
     timeout = models.SmallIntegerField(null=True, verbose_name="接口请求超时时间")
-    module = models.ForeignKey(to=ApiModule, default=1, on_delete=models.PROTECT, verbose_name="所属模块")
+    module = models.ForeignKey(to=ApiModule, on_delete=models.PROTECT, verbose_name="所属模块")
     source = models.SmallIntegerField(default=USER_API, verbose_name="接口来源")
 
     class Meta:
         verbose_name = 'api用例'
         db_table = 'api_data'
-        unique_together = ('project', 'path', 'method')
+        unique_together = ('env', 'path', 'method')
 
 
 class ApiCaseModule(ComTimeModel, ComModuleModel):

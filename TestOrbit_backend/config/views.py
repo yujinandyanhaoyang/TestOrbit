@@ -4,23 +4,19 @@ import time
 from django.db import transaction
 from django.db.models import F, Value, JSONField
 from django.db.models.functions import Concat
-
-from django.shortcuts import render
-
 # Create your views here.
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from apiData.models import ApiModule, ApiData, ApiCase
-from apiData.viewDef import ApiCasesActuator
+from apiData.views.viewDef import ApiCasesActuator
 from utils.comDef import db_connect, get_proj_envir_db_data, close_db_con
 from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_SQL, VAR_PARAM
 from utils.paramsDef import set_user_temp_params
 from utils.views import LimView
 from project.models import Project
-from config.models import Environment, ProjectEnvirData
+from config.models import Environment  # 移除 ProjectEnvirData 导入
 from config.serializers import EnvironmentSerializer
 from user.models import UserTempParams
 
@@ -29,46 +25,64 @@ class EnvironmentView(LimView):
     """
     环境配置视图类
     处理环境配置的创建、列表、修改和删除
+    
+    技术债务处理: 移除了 ProjectEnvirData 表的依赖，直接使用 Environment 表
+    现在所有项目都可以访问所有环境
     """
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.order_by('-created')
 
     @staticmethod
-    def get_envir_data(request, proj_id):
-        envir_dict = {}
+    def get_api_url_from_request(request):
+        """从请求中提取 API URL"""
+        url = request.data.get('url')
+        
+        # 尝试从 API 配置中提取 URL
         for key in request.data:
-            if key.startswith('envir'):
-                envir_id, name = key.split('_')[1:]
-                if envir_id not in envir_dict:
-                    envir_dict[envir_id] = {'envir_id': int(envir_id), 'project_id': proj_id, 'data': {}}
-                if name == DB:
-                    envir_dict[envir_id]['data'][name] = {v['db_con_name']: v for v in request.data[key]}
-                else:
-                    envir_dict[envir_id]['data'][name] = request.data[key]
-        return [ProjectEnvirData(**v) for v in envir_dict.values()]
+            if key.startswith('envir') and key.endswith('_api'):
+                api_url = request.data[key]
+                if not url and isinstance(api_url, str):
+                    url = api_url
+                    break
+                    
+        return url
 
     def post(self, request, *args, **kwargs):
+        """创建新环境"""
         try:
             with transaction.atomic():
-                proj = Environment.objects.create(name=request.data['name'], remark=request.data.get('remark'))
-                envir_data = self.get_envir_data(request, proj.id)
-                ProjectEnvirData.objects.bulk_create(envir_data)
-                ApiModule.objects.create(name=DEFAULT_MODULE_NAME, project_id=proj.id)
+                # 提取 API URL
+                url = self.get_api_url_from_request(request)
+                
+                # 创建环境记录
+                environment = Environment.objects.create(
+                    name=request.data['name'],
+                    remark=request.data.get('remark'),
+                    url=request.data.get('url') or url  # 优先使用请求中的 url，否则使用从 API 配置中提取的 url
+                )
+                
+                # 注意：不再自动创建 ApiModule，因为环境不应该自动关联到特定项目的模块
+                # 如果需要为特定项目创建模块，应该在项目管理中进行
         except Exception as e:
             if '1062' in str(e):
                 return Response({'msg': '已存在同名环境！'}, status=status.HTTP_400_BAD_REQUEST, headers={})
             return Response(data={'msg': f"执行出错:{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(data={'msg': '创建成功！', 'id': proj.id})
+        return Response(data={'msg': '创建成功！', 'id': environment.id})
 
     def patch(self, request, *args, **kwargs):
-        envir_data = self.get_envir_data(request, request.data['id'])
+        """更新环境信息"""
         try:
-            with transaction.atomic():
-                ProjectEnvirData.objects.filter(project_id=request.data['id']).delete()
-                ProjectEnvirData.objects.bulk_create(envir_data)
+            # 提取 API URL
+            url = self.get_api_url_from_request(request)
+            
+            # 如果提供了 URL，更新到请求数据中
+            if url and not request.data.get('url'):
+                request.data['url'] = url
+                
+            # 使用父类的 partial_update 方法更新环境
+            return self.partial_update(request, *args, **kwargs)
         except Exception as e:
             return Response(data={'msg': f"执行出错:{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        return self.partial_update(request, *args, **kwargs)
 
 
 @api_view(['GET'])
@@ -95,38 +109,61 @@ def environment_overview(request):
 def get_project_envir_data(request):
     """
     获取项目环境配置
+    
+    技术债务清理：移除 ProjectEnvirData 依赖，直接使用 Environment
+    现在所有项目可以访问所有环境
     """
     project_id = request.query_params.get('id')
-    envir = Project.objects.annotate(data=Value([], output_field=JSONField())).values('id', 'name', 'data')
-    if project_id:
-        envir = {v['id']: v for v in envir}
-        pro_envir = ProjectEnvirData.objects.filter(
-            project_id=project_id).annotate(name=F('envir__name')).values('envir_id', 'name', 'data')
-        for v in pro_envir:
-            envir[v['envir_id']]['data'] = v['data']
-        return Response(data=list(envir.values()))
-    return Response(data=envir)
+    
+    # 获取所有环境
+    environments = Environment.objects.all().values('id', 'name', 'url')
+    
+    # 构造返回数据
+    envir_data = []
+    for env in environments:
+        # 为每个环境构造一个基本的数据结构
+        env_data = {
+            'id': env['id'],
+            'name': env['name'],
+            'data': {
+                'api': env['url'],  # 使用 url 字段作为 API 地址
+                'db': {}  # 默认的空数据库配置
+            }
+        }
+        envir_data.append(env_data)
+    
+    return Response(data=envir_data)
 
 
 @api_view(['GET'])
 def get_project_have_envir(request):
     """
     获取配置了指定环境参数的项目
+    
+    技术债务清理：移除 ProjectEnvirData 依赖，直接使用 Environment
+    现在所有项目可以访问所有环境
     """
     _type = request.query_params['type']
-    pro_data = {pro['id']: {**pro, **{'disabled': True}} for pro in Environment.objects.values('id', 'name')}
-    envir_data = ProjectEnvirData.objects.filter(data__isnull=False, envir_id=1).annotate(
-        name=F('project__name')).values('name', 'data', 'project_id')
+    
+    # 获取所有环境，并将它们都标记为可用（不禁用）
+    environments = Environment.objects.all().values('id', 'name', 'url')
+    pro_data = {env['id']: {'id': env['id'], 'name': env['name'], 'disabled': False} for env in environments}
 
+    # 在新的业务逻辑下，所有环境都被视为可用
     if _type == API_HOST:
-        for v in envir_data:
-            if v['data'] and v['data'].get(API_HOST):
-                pro_data[v['project_id']]['disabled'] = False
+        # 所有有 URL 的环境都可用于 API_HOST
+        for env_id, env_data in pro_data.items():
+            env = next((e for e in environments if e['id'] == env_id), None)
+            if env and env['url']:
+                env_data['disabled'] = False
     elif _type == API_SQL:
-        for v in envir_data:
-            if v['data'] and v['data'].get('db'):
-                pro_data[v['project_id']]['disabled'] = False
-                pro_data[v['project_id']]['children'] = [{'id': key, 'name': key} for key in v['data']['db'].keys()]
+        # 对于数据库连接，我们可能需要更复杂的逻辑
+        # 这里简化处理，假设所有环境都支持默认数据库
+        for env_id, env_data in pro_data.items():
+            env_data['disabled'] = False
+            # 为每个环境添加一个默认的数据库连接
+            env_data['children'] = [{'id': 'default', 'name': 'default'}]
+    
     return Response(list(pro_data.values()))
 
 

@@ -15,7 +15,7 @@ django.setup()
 # 导入模型
 from apiData.models import ApiModule, ApiData, ApiCaseModule, ApiCase, ApiCaseStep
 from project.models import Project, ProjectParamType
-from config.models import Environment, ProjectEnvirData
+from config.models import Environment  # 移除 ProjectEnvirData 导入，因为该模型已被删除
 from user.models import LimUser
 from utils.constant import WAITING, SUCCESS, FAILED, USER_API
 from django.db import transaction
@@ -65,17 +65,14 @@ class TestDataGenerator:
         for i in range(count):
             env, created = Environment.objects.get_or_create(
                 name=f"测试环境{i+1}",
-                defaults={'remark': f'这是测试环境{i+1}的备注'}
+                defaults={
+                    'remark': f'这是测试环境{i+1}的备注',
+                    'url': f'http://test{i+1}.example.com'  # 直接在 Environment 中设置 URL
+                }
             )
             self.environments.append(env)
             
-            # 为每个项目创建环境配置
-            for project in self.projects:
-                ProjectEnvirData.objects.get_or_create(
-                    envir=env,
-                    project=project,
-                    defaults={'data': {'base_url': f'http://test{i+1}.example.com'}}
-                )
+            # 注意：不再需要 ProjectEnvirData，环境现在是独立的，所有项目都可以访问所有环境
         return self.environments
         
     def create_api_modules(self, count=5):

@@ -16,7 +16,8 @@ from sshtunnel import SSHTunnelForwarder
 from utils.constant import MYSQL, FAILED, SUCCESS, HEADER_PARAM, VAR_PARAM, HOST_PARAM, STRING
 from utils.diyException import DiyBaseException
 from project.models import ProjectParamType
-from config.models import ProjectEnvirData
+# 从 config.models 中导入 Environment 而不是 ProjectEnvirData，因为业务逻辑已改变
+from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 
@@ -92,12 +93,28 @@ def db_connect(data):
 def get_proj_envir_db_data(sql_proj_related, user_id=None, envir=None):
     """
     获取项目环境下的数据库参数
+    新版本: 由于业务逻辑已改变，直接从 Environment 中获取数据
     """
-    envir = envir or UserCfg.objects.filter(user_id=user_id).values_list('envir_id', flat=True).first() or 1
+    # 获取环境ID，默认为1
+    envir_id = envir or UserCfg.objects.filter(user_id=user_id).values_list('envir_id', flat=True).first() or 1
     project_id, db_name = sql_proj_related
-    envir_data = ProjectEnvirData.objects.filter(
-        project_id=project_id, envir_id=envir).values_list('data', flat=True).first() or {}
-    db_data = envir_data.get('db', {}).get(db_name)
+    
+    # 从 Environment 中获取 url 作为数据库连接参数
+    environment = Environment.objects.filter(id=envir_id).first()
+    if not environment:
+        return None
+    
+    # 构造数据库参数
+    # 注意：这是一个简化的实现，可能需要根据实际业务逻辑进行调整
+    db_data = {
+        'host': environment.url,
+        'db_name': db_name,
+        # 添加其他必要的默认参数
+        'port': 3306,
+        'username': 'default_user',
+        'password': 'default_password',
+    }
+    
     return db_data
 
 

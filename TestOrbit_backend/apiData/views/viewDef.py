@@ -21,7 +21,8 @@ from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNIN
     CONTAIN, NOT_CONTAIN, TEXT_MODE, API, FORM_FILE_TYPE, FORM_TEXT_TYPE, API_SQL, RES_BODY
 from utils.diyException import DiyBaseException, NotFoundFileError
 from utils.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
-from config.models import ProjectEnvirData
+# 移除对 ProjectEnvirData 的导入，使用 Environment
+from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 
@@ -29,11 +30,14 @@ def create_api(req_data, default_params):
     """
     创建自定义Api用例基础数据
     """
+    print("正在调用ApiData.objects.create函数创建新 API")
+    print(f"请求数据: {req_data}")
     # 因为唯一性可能会报错,所以需要在外层做捕获
     api = ApiData.objects.create(
         name=req_data['name'], path=req_data['path'], method=req_data['method'], default_params=default_params,
-        timeout=req_data.get('timeout'), project_id=req_data['project_id'], source=USER_API,
+        timeout=req_data.get('timeout'), env_id=req_data['env_id'], source=USER_API,
         module_id=req_data['module_id'])
+    print(f"创建的 API ID 为：{api.id}")
     return api.id
 
 
@@ -45,9 +49,9 @@ def update_api(req_data, default_params, api_id, source):
     update_fields = {'timeout': req_data.get('timeout'), 'default_params': default_params}
     if source == USER_API:
         update_fields.update({field: req_data.get(field) for field in ('name', 'path', 'method')})
-        project_id, module_id = req_data.get('project_id'), req_data.get('module_id')
-        if project_id:
-            update_fields['project_id'] = project_id
+        env_id, module_id = req_data.get('env_id'), req_data.get('module_id')
+        if env_id:
+            update_fields['env_id'] = env_id
         if module_id:
             update_fields['module_id'] = module_id
     ApiData.objects.filter(id=api_id).update(**update_fields)
@@ -63,9 +67,12 @@ def save_api(req_data, api_id, source):
         param_fields.extend((f'{key}_source', f'{key}_mode'))
     param_fields.extend(('host', 'host_type', 'ban_redirects'))
     default_params = {key: req_data.get(key) for key in param_fields}
+    print(f"已进入 save_api 函数，参数如下：")
+    print(f"api_id: {api_id}, source: {source}")
     if api_id:
         update_api(req_data, default_params, api_id, source)
     else:
+        print("调用 create_api 函数创建新 API")
         api_id = create_api(req_data, default_params)
     return api_id
 
@@ -257,9 +264,9 @@ class ApiCasesActuator:
         params = step['params']
         if host := params.get('host') or '':
             if params.get('host_type') == PRO_CFG:
-                pro_data = ProjectEnvirData.objects.filter(
-                    project_id=host, envir_id=self.envir).values_list('data', flat=True).first() or {}
-                host = pro_data.get('host') or ''
+                # 直接从 Environment 获取 URL
+                environment = Environment.objects.filter(id=self.envir).first()
+                host = environment.url if environment else ''
         elif self.default_host:
             host = self.default_host
         # 参数中包含了case_id则走库里面取接口信息，不然则使用传递的（调试时才会无case_id）
@@ -380,11 +387,11 @@ class ApiCasesActuator:
         if params['host_type'] == DIY_CFG:
             self.default_host = params['value']
         else:
-            data = ProjectEnvirData.objects.filter(project_id=params['value']).values_list(
-                'data', flat=True).first() or {}
-            self.default_host = data.get('host')
+            # 直接从 Environment 获取 URL
+            environment = Environment.objects.filter(id=params['value']).first()
+            self.default_host = environment.url if environment else ''
             if not self.default_host:
-                return {'status': FAILED, 'results': '该项目没有配置请求地址！'}
+                return {'status': FAILED, 'results': '该环境没有配置请求地址！'}
         self.params_source[HOST_PARAM]['请求地址'] = {
             'name': '请求地址', 'value': self.default_host, 'type': HOST_PARAM,
             'step_name': prefix_label + step['step_name'], 'param_type_id': STRING, **self.base_params_source}
