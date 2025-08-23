@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from apiData.models import ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
-from apiData.views.viewDef import save_api, parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
+from apiData.views.viewDef import save_step, parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
 from utils.comDef import MyThread
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.diyException import CaseCascaderLevelError
@@ -27,6 +27,7 @@ class ApiViews(LimView):
     filterset_fields = ('case_id', 'name', 'status', 'method')
     ordering_fields = ('name',)
 
+    #  获取步骤详情
     def get(self, request, *args, **kwargs):
         req_params = request.query_params.dict()
         api_id, is_case = req_params.get('id'), req_params.get('is_case')
@@ -46,55 +47,44 @@ class ApiViews(LimView):
 
     # 新增或更新测试步骤
     def post(self, request, *args, **kwargs):
-        # print("打印请求数据，检查处理方法是否有误:")
-        # print(request.data)
         req_data = request.data
-        
-        # 技术债务处理：由于project和environment表名互换，前端发送的project_id实际上是env_id
-        # 我们需要确定实际的project_id以创建默认模块
-        env_id = req_data['env_id']  # 前端发送的project_id实际上是env_id
-        
-        # 优化：使用请求体中的id字段来判断是新增还是更新
-        api_id = req_data.get('api_id')  # 如果前端传了id，说明是更新操作
-        
-        if api_id:
-            # 更新操作：根据提供的id查找API
-            print(f"更新模式：API ID = {api_id}")
-            source = ApiCaseStep.objects.filter(id=api_id).values_list('source', flat=True).first()
-            if not source:
-                return Response(data={'msg': f'指定的API不存在！(ID: {api_id})'}, status=status.HTTP_400_BAD_REQUEST)
-            print(f"找到API，source = {source}")
+        # print(f'请求数据: {req_data}')
+        case_id = req_data.get('case_id')
+
+        if req_data['steps'][0].get('step_id'):
+            step_id = req_data['steps'][0]['step_id']
+            # 更新操作：通过case_id和step_id查找步骤
+            step = ApiCaseStep.objects.filter(case_id=case_id, id=step_id).first()
+            
+            if not step:
+                return Response(data={'msg': f'未找到对应的步骤！(case_id: {case_id}, step_id: {step_id})'}, status=status.HTTP_400_BAD_REQUEST)
+            source = step.source
+            print(f"找到步骤，source = {source}, step_id = {step_id}")
         else:
-            # 新增操作：创建新API
-            print("新增模式：创建新API")
-            api_id = None
+            # 新增操作：创建新步骤
+            step_id = None
             source = USER_API
             
         try:            
-            #保存测试步骤前预处理req_data
-            #暂时指定module_id = APM00000001,后期优化后使用具体模块进行替换
-#标记此处，后续项目升级需要修改默认module_id。333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
-            req_data['module_id'] = 'APM00000001'
-
-            used_api_id = save_api(req_data, api_id, source)  # 存储测试数据和基础测试用例
+            used_step_id = save_step(req_data, step_id)  # 存储测试数据和基础测试用例
             
             # 根据操作类型提供更清晰的成功消息
-            if api_id:
-                operation_msg = f'API更新成功！(API ID: {used_api_id})'
+            if step_id:
+                operation_msg = f'步骤更新成功！(步骤 ID: {used_step_id})'
             else:
-                operation_msg = f'API创建成功！(API ID: {used_api_id})'
+                operation_msg = f'步骤创建成功！(步骤 ID: {used_step_id})'
             print(operation_msg)
             
         except IntegrityError as e:
-            # 简化错误处理：只处理真正的完整性错误，不限制重复API创建
-            operation_desc = "更新" if api_id else "创建"
-            return Response(data={'msg': f'{operation_desc}API时发生数据库约束错误: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+            # 简化错误处理：只处理真正的完整性错误，不限制重复步骤创建
+            operation_desc = "更新" if step_id else "创建"
+            return Response(data={'msg': f'{operation_desc}步骤时发生数据库约束错误: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             # print(f"Exception: {str(e)}")
-            operation_desc = "更新" if api_id else "创建"
-            return Response(data={'msg': f'{operation_desc}API时出错: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response(data={'msg': operation_msg, 'results': {'api_id': used_api_id}})
+            operation_desc = "更新" if step_id else "创建"
+            return Response(data={'msg': f'{operation_desc}步骤时出错: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data={'msg': operation_msg, 'results': {'step_id': used_step_id}})
 
 
 @api_view(['GET'])

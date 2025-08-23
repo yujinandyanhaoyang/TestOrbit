@@ -26,57 +26,54 @@ from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 
-def create_api(req_data, params):
+def create_api(req_data):
     """
     创建自定义Api用例基础数据
     """
     # print("正在调用ApiCaseStep.objects.create函数创建新 API")
-    # print(f"请求数据: {req_data}")
-    # 因为唯一性可能会报错,所以需要在外层做捕获
-    print("正在创建新的 API...")
-    api = ApiCaseStep.objects.create(
-        name=req_data['name'], path=req_data['path'], method=req_data['method'], params=params,
-        timeout=req_data.get('timeout'), env_id=req_data['env_id'], source=USER_API,
-        module_id=req_data['module_id'])
-    print(f"创建的 API ID 为：{api.id}")
-    return api.id
+    # print("正在创建新的 API...")
+    step = ApiCaseStep.objects.create(
+        type=req_data['steps'][0]['type'], 
+        enabled=req_data['steps'][0]["enabled"],
+        step_name=req_data['steps'][0]['step_name'], 
+        step_order=req_data['steps'][0]['step_order'],
+        params=req_data['steps'][0]['params'],
+        results=req_data['steps'][0]['results'],
+        timeout=30,  # 设置默认值
+        source=USER_API,
+        env_id=req_data.get("env_id"), 
+        case_id=req_data.get("case_id"),)
+    print(f"创建的 API ID 为：{step.id}")
+    return step.id
 
 
-def update_api(req_data, params, api_id, source):
+def update_step(req_data, step_id):
     """
     更新自定义Api用例基础数据
     """
     print('\t')
     print('已进入updata_api函数，准备更新API数据')
-    print(f'已获得params:{params}')
-    update_fields = {'params': params}
-    if source == USER_API:
-        update_fields.update({field: req_data.get(field) for field in ('name', 'path', 'method')})
-        env_id, module_id = req_data.get('env_id'), req_data.get('module_id')
-        if env_id:
-            update_fields['env_id'] = env_id
-        if module_id:
-            update_fields['module_id'] = module_id
-    ApiCaseStep.objects.filter(id=api_id).update(**update_fields)
+    ApiCaseStep.objects.filter(id=step_id).update(
+        type=req_data['steps'][0]['type'], 
+        enabled=req_data['steps'][0]["enabled"],
+        step_name=req_data['steps'][0]['step_name'], 
+        step_order=req_data['steps'][0]['step_order'],
+        params=req_data['steps'][0]['params'],
+        results=req_data['steps'][0]['results'],
+        env_id=req_data.get("env_id"))
+    print(f"{step_id} 更新成功")
 
 
-def save_api(req_data, api_id, source):
+def save_step(req_data, step_id):
     """
-    创建Api的请求数据
-    当在创建用例的同时创建接口时，需要传递 is_case=true/1,这样才能创建用例测试数据。
+    创建用例步骤
     """
-    param_fields = []
-    for key in ('header', 'query', 'body', 'expect', 'output'):
-        param_fields.extend((f'{key}_source', f'{key}_mode'))
-    param_fields.extend(('host', 'host_type', 'path','method','ban_redirects'))
-    params = {key: req_data.get(key) for key in param_fields}
-    print(f"已进入 save_api 函数，参数如下：")
-    print(f"api_id: {api_id}, source: {source}")
-    if api_id:
-        update_api(req_data, params, api_id, source)
+    print(f"已进入 save_step 函数，参数如下：")
+    if step_id:
+        update_step(req_data, step_id)
     else:
-        api_id = create_api(req_data, params)
-    return api_id
+        step_id = create_api(req_data)
+    return step_id
 
 
 class ApiCasesActuator:

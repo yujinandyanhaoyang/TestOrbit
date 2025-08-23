@@ -80,7 +80,7 @@ class ApiCaseStep(ComTimeModel, models.Model):
 
     # 关联
     case = models.ForeignKey(to=ApiCase, related_name='case_step', on_delete=models.CASCADE, verbose_name="所属测试用例")
-    env_id = models.ForeignKey(to=Environment, null=True, blank=True, on_delete=models.PROTECT, verbose_name="环境变量")
+    env = models.ForeignKey(to=Environment, null=True, blank=True, on_delete=models.PROTECT, verbose_name="环境变量")
 
     def get_step_params(self):
         """
