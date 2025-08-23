@@ -18,9 +18,13 @@ urlpatterns = [
     # 获取用例组下的测试步骤用例
     # 保存用例组
 
+    # 复制用例
+    path('copy-cases', caseGroup.copy_cases),
+
+
     path('delete-selected-cases', caseGroup.delete_selected_cases),
     path('stop-casing', caseGroup.stop_casing),
-    path('copy-cases', caseGroup.copy_cases),
+    
     path('merge-cases', caseGroup.merge_cases),
     path('copy-step-to-other-case', caseGroup.copy_step_to_other_case),
     path('case-sort-list', caseGroup.case_sort_list),

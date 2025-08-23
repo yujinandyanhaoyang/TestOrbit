@@ -5,9 +5,9 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from apiData.models import ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
+from apiData.models import ApiCase,  ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
-from apiData.views.viewDef import save_step, parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
+from apiData.views.viewDef import  parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
 from utils.comDef import MyThread
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.diyException import CaseCascaderLevelError
@@ -16,6 +16,10 @@ from utils.report import get_api_case_step_count, report_case_count, init_step_c
 from utils.views import LimView
 from config.models import Environment
 from user.models import UserCfg
+
+# 功能函数切分保存位置,变更到其他位置
+from .function.steps_def import save_step
+
 
 """
 用例步骤相关操作
@@ -62,7 +66,6 @@ class ApiViews(LimView):
         else:
             # 新增操作：创建新步骤
             step_id = None
-
         try:            
             used_step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
             
@@ -179,13 +182,29 @@ def test_api_data(request):
     """
     调试API接口请求。运行单步骤用例
     """
-    # print("调试API接口请求。运行单步骤用例")
+    
+    # 解析请求数据
     req_data, user_id = request.data, request.user.id
+    
+    # 创建执行器对象
+    print("\n🛠️ 创建API用例执行器 (ApiCasesActuator)")
     actuator_obj = ApiCasesActuator(user_id)
+    print(f"⚙️ 执行器初始化完成，环境ID: {actuator_obj.envir}")
+    
+    # 设置类型为API
     req_data['type'] = API
+    print(f"📌 已设置步骤类型为API: {API}")
+    
+    # 调用go_step函数执行步骤
+    print("\n▶️ 开始调用go_step函数执行步骤...")
+    print(f"📤 传入参数: actuator_obj, req_data, i=0")
     res = go_step(actuator_obj, req_data, i=0)
-    UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
-    set_user_temp_params(actuator_obj.params_source, request.user.id)
+
+    # 打印结果
+    print("\n✅ 执行完成")
+    # 原本被注释的代码
+    # UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
+    # set_user_temp_params(actuator_obj.params_source, request.user.id)
     return Response(res.get('data', {}))
 
 

@@ -21,57 +21,11 @@ from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNIN
     CONTAIN, NOT_CONTAIN, TEXT_MODE, API, FORM_FILE_TYPE, FORM_TEXT_TYPE, API_SQL, RES_BODY
 from utils.diyException import DiyBaseException, NotFoundFileError
 from utils.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
-# 移除对 ProjectEnvirData 的导入，使用 Environment
 from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
-
-def create_api(step,env_id,case_id):
-    """
-    创建自定义Api用例基础数据
-    """
-    # print("正在调用ApiCaseStep.objects.create函数创建新 API")
-    # print("正在创建新的 API...")
-    step = ApiCaseStep.objects.create(
-        type=step['type'], 
-        enabled=step["enabled"],
-        step_name=step['step_name'], 
-        step_order=step['step_order'],
-        params=step['params'],
-        results=step['results'],
-        timeout=30,  # 设置默认值
-        source=USER_API,
-        env_id=env_id, 
-        case_id=case_id,)
-    print(f"创建的 API ID 为：{step.id}")
-    return step.id
-
-
-def update_step(step, step_id, env_id):
-    """
-    更新自定义Api用例基础数据
-    """
-    ApiCaseStep.objects.filter(id=step_id).update(
-        type=step['type'], 
-        enabled=step["enabled"],
-        step_name=step['step_name'], 
-        step_order=step['step_order'],
-        params=step['params'],
-        results=step['results'],
-        env_id=env_id)
-    print(f"{step_id} 更新成功")
-
-
-def save_step(step, step_id, env_id, case_id):
-    """
-    创建用例步骤
-    """
-    print(f"已进入 save_step 函数，参数如下：")
-    if step_id:
-        update_step(step, step_id, env_id)
-    else:
-        step_id = create_api(step,env_id,case_id)
-    return step_id
+# 功能函数切分保存位置,变更到其他位置
+from .function.steps_def import go_step
 
 
 class ApiCasesActuator:
@@ -258,21 +212,40 @@ class ApiCasesActuator:
         执行类型为接口的步骤
         优化后：参数通过关联的ApiData获取，不再使用step['params']
         """
-        upload_files_list = []
+        print("\n" + "="*60)
+        print("🌐 API方法开始执行")
+        print(f"📋 步骤名称: {step.get('step_name', '未命名')}")
         
+        # 临时文件列表
+        upload_files_list = []
+        print("🗂️ 初始化上传文件列表")
+        
+        # 打印step内容
+        print("\n📝 步骤数据摘要:")
+        for key, value in step.items():
+            if key != 'params':  # params可能很大，单独处理
+                print(f"  - {key}: {value}")
+        
+        print("\n🔍 参数获取方式判断...")
         # 从关联的ApiData获取参数，而不是step['params']
         if step.get('api_id') and isinstance(step.get('api_id'), int):
-            # 步骤关联了ApiData
             api_id = step['api_id']
-            api_base = self.api_data.get(api_id)
+            print(f"📌 步骤关联了API数据，ID: {api_id}")
             
-            if not api_base:
-                # 从ApiData获取完整的API数据
+            # 检查缓存
+            api_base = self.api_data.get(api_id)
+            if api_base:
+                print("✅ 从缓存获取API基础数据")
+            else:
+                print("🔄 缓存未命中，从数据库查询API数据...")
+                # 从数据库获取API数据
                 api_instance = ApiCaseStep.objects.filter(id=api_id).select_related('env').first()
                 
                 if not api_instance:
-                    return {'status': FAILED, 'results': f'找不到API数据(ID: {api_id})'}
+                    print(f"❌ 数据库中未找到API数据(ID: {api_id})")
+                    return {'status': FAILED, 'data': f'找不到API数据(ID: {api_id})'}
                 
+                print("✅ 数据库查询成功")
                 # 构建api_base数据
                 api_base = {
                     'path': api_instance.path,
@@ -283,9 +256,12 @@ class ApiCasesActuator:
                 
                 # 缓存API基础数据
                 self.api_data[api_id] = api_base
+                print("📦 API基础数据已缓存")
             
-            # 使用ApiData.params作为参数源
+            # 获取参数
+            print("🔍 获取API参数...")
             params = api_instance.params or {} if 'api_instance' in locals() else {}
+            print(f"📦 参数大小: 约 {len(str(params))} 字符")
             
             # 从api_base获取基础API信息
             url_path = api_base['path']
@@ -400,13 +376,36 @@ class ApiCasesActuator:
                     results = '请求路径不存在！'
                 else:
                     results = '请求异常！'
-                req_log.update({'url': r.url, 'res_header': dict(r.headers), 'response': response,
-                                'spend_time': spend_time, 'results': results})
+                # 更新请求日志
+                req_log.update({
+                    'url': r.url, 
+                    'res_header': dict(r.headers), 
+                    'response': response,
+                    'spend_time': spend_time, 
+                    'results': results
+                })
+                
+                print(f"\n⏱️ 请求耗时: {spend_time}秒")
+                print(f"🔢 状态码: {res_code}")
+                print(f"📊 结果状态: {res_status}")
+                if results:
+                    print(f"📝 结果消息: {results}")
+                
         except Exception as e:
-            print('api_error', str(e), e.__traceback__.tb_lineno)
+            print(f"\n❌ API执行出错: {str(e)}")
+            print(f"❌ 错误行号: {e.__traceback__.tb_lineno}")
             req_log['results'] = results = self.api_process + str(e)
+            
+        # 清理临时文件
+        # print("\n🧹 清理临时上传文件...")
         self.clear_upload_files(upload_files_list)
-        return {'status': res_status, 'results': {'msg': results, 'request_log': req_log}}
+        
+        # 准备返回结果
+        result = {'status': res_status, 'data': {'msg': results, 'request_log': req_log}}
+        print("\n✅ API执行完成")
+        print(f"📊 最终状态: {res_status}")
+        print("="*60 + "\n")
+        return result
 
     def case(self, step, prefix_label='', cascader_level=1, i=0):
         """
@@ -611,50 +610,6 @@ def run_step_groups(actuator_obj, step_data, prefix_label='', cascader_level=0, 
     return run_status, step_data
 
 
-def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
-    s_type = step['type']
-    # 执行状态为中断时则直接返回跳过，但下面的处理方式会导致循环器/引用计划直接中断，它们里面的步骤状态不会改变，还是上次的执行结果
-    if actuator_obj.status in (INTERRUPT, FAILED_STOP):
-        return {'status': SKIP, 'results': '执行被中断！' if s_type not in (API_CASE, API_FOREACH) else None}
-    params = {'step': step, 'i': i, 'prefix_label': prefix_label, **extra_params}
-    controller_data = step.get('controller_data') or {}
-    # 为了避免失败跳过执行出现BUG，case和foreach不允许设置重试，设置的话会默认不重试
-    retry_times = controller_data.get('re_times', 0) if s_type not in (API_CASE, API_FOREACH) else 0
-    retry_interval, execute_on = controller_data.get('re_interval', 0), controller_data.get('execute_on', '')
-    sleep_time = controller_data.get('sleep')
-    res = {'status': SUCCESS, 'results': ''}
-    if execute_on:
-        try:
-            res = run_params_code(execute_on, copy.deepcopy(actuator_obj.default_var), i)
-            if not res:
-                return {'status': SKIP, 'results': '【控制器】执行条件不满足！'}
-        except Exception as e:
-            if actuator_obj.failed_stop:
-                actuator_obj.running_status = INTERRUPT
-            return {'status': FAILED, 'results': '【控制器】' + str(e)}
-    sleep_time and time.sleep(sleep_time)
-    for j in range(retry_times + 1):
-        print(step.get('step_name', '') + '，执行次数：' + str(j))
-        try:
-            res = getattr(actuator_obj, s_type)(**params) or {'status': SUCCESS}
-            s_type == API_SQL and res.pop('data', None)
-        except Exception as e:  # 捕获步骤执行过程的异常
-            res = {'status': FAILED, 'results': str(e)}
-        if res['status'] == FAILED:
-            if j < retry_times:
-                time.sleep(retry_interval)
-        else:
-            break
-    res['retried_times'] = j
-    # 只有成功和跳过执行的步骤才不记录日志，失败和中断的还是会记录日志
-    if actuator_obj.only_failed_log and res['status'] in (SUCCESS, SKIP) and s_type != API_CASE:
-        return {'status': res['status'], 'retried_times': res['retried_times']}
-    if res['status'] == FAILED:
-        if actuator_obj.failed_stop:
-            actuator_obj.status = FAILED_STOP
-    # if res['status'] == SPEND_TIME_OUT:
-    #     res['status'] = FAILED
-    return res
 
 
 def monitor_interrupt(user_id, actuator_obj):
@@ -801,38 +756,3 @@ def set_foreach_tree(_list):
     print("🌳 set_foreach_tree 完成")
     return tree
 
-
-def copy_cases_func(request, case_model, step_model, foreach_step_model=None):
-    """
-    复制用例方法
-    """
-
-    req_data = request.data
-    case_obj = case_model.objects.get(id=req_data['case_id'])
-    case_obj.creater_id = request.user.id
-    case_obj.id = None
-    case_obj.status = WAITING
-    case_obj.name = case_obj.name + '-' + str(int(time.time()))
-    case_steps = step_model.objects.filter(case_id=req_data['case_id']).values()
-    case_obj.save()
-    step_objs = []
-    foreach_steps_obj = []
-    next_id = (ApiCaseStep.objects.aggregate(Max('id')).get('id__max') or 0) + 1
-    for step in case_steps:
-        step['case_id'] = case_obj.id
-        old_step_id = step.pop('id')
-        step['id'] = next_id
-        step.pop('results', None)
-        step_objs.append(step_model(**step))
-        print('ada', step)
-        if step['type'] == API_FOREACH:
-            for for_step in ApiForeachStep.objects.filter(step_id=old_step_id).values():
-                for_step.pop('id')
-                for_step['step_id'] = next_id
-                print('fa', for_step)
-                foreach_steps_obj.append(ApiForeachStep(**for_step))
-        next_id += 1
-    step_model.objects.bulk_create(step_objs)
-    if foreach_steps_obj:
-        ApiForeachStep.objects.bulk_create(foreach_steps_obj)
-    return Response(data={'msg': "复制成功！"})

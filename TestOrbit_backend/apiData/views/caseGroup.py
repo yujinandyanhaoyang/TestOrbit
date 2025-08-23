@@ -8,11 +8,16 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
-from apiData.views.viewDef import parse_create_foreach_steps, copy_cases_func, save_step
+from apiData.views.viewDef import parse_create_foreach_steps
 from utils.comDef import get_module_related, get_case_sort_list
 from utils.constant import API,  API_CASE, API_FOREACH,WAITING, INTERRUPT, USER_API
 from utils.views import LimView
 from user.models import UserCfg
+
+# 功能函数切分保存位置,变更到其他位置
+from .function.steps_def import save_step
+from .function.group_def import copy_cases_func
+
 
 """
 用例组相关操作
