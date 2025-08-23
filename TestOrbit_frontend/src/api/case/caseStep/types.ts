@@ -60,6 +60,7 @@ export interface BodySourceItem {
 
 // 添加测试步骤请求参数
 export interface AddCaseStepRequest {
+    id?: number;               // 步骤ID，可选。如果提供则为更新操作，否则为创建操作
     step_name: string;         // 步骤名称
     name: string;              // 名称
     env_id: number;        // 项目ID

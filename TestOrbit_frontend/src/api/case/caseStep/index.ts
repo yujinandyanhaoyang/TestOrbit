@@ -34,15 +34,6 @@ export const runCaseStep = (data:any) : Promise<any> => {
     )
 }
 
-// 获取步骤详情
-export const getStepDetail = (id:number,is_case=true): Promise<any> => {
-    return request.get(`${API.CASE_GROUP_STEP_URL}`, {
-        params: {
-            id,
-            is_case
-        }
-    })
-}
 
 
 

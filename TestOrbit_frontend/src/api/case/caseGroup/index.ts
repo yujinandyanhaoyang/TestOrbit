@@ -21,7 +21,6 @@ enum API {
 
 // 用例组相关接口
 // 运行用例组
-// 请求体类型
 export const runCaseGroup = (caseIds: number[], envir:number): Promise<any> => {
     return request.post(
         // 路径

@@ -4,8 +4,9 @@
         <!--顶部操作框-->
         <div class="top">
             <Head 
-                :case-name="caseGroupData?.name || '用例组详情'" 
+                :case-name="caseGroupData?.name || ''" 
                 :module-id="caseGroupData?.module_id" 
+                :list-detail-ref="listDetailRef"
                 @add-step="handleAddStep" 
                 @save-order="handleSaveOrder" 
             />
@@ -58,17 +59,13 @@ const fetchCaseGroupData = async (groupId) => {
             console.log('用例组详情加载成功:', response.results);
             
             // 调用ListDetail组件的setCaseGroupDetail方法
-            if (listDetailRef.value && typeof listDetailRef.value.setCaseGroupDetail === 'function') {
+            if (listDetailRef.value ) {
               console.log('调用ListDetail组件的setCaseGroupDetail方法');
               listDetailRef.value.setCaseGroupDetail(response);
             } else {
               console.warn('listDetailRef.value没有setCaseGroupDetail方法');
             }
-            
-            console.log('listDetailRef组件:', listDetailRef.value);
-            
             ElMessage.success(`成功加载用例组: ${response.results.name}`);
-            // console.log('用例组详情加载成功:', response.results);
         } else {
             ElMessage.error(response.msg || `加载用例组 #${groupId} 详情失败`);
         }

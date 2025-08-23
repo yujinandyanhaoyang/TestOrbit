@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apiData.views import caseGroup, module_tree,caseStep
+from apiData.views import caseGroup, module_tree, caseStep, case_steps
 
 app_name = "apiData"
 
@@ -15,6 +15,8 @@ urlpatterns = [
 
     # 用例组
     path('case-view', caseGroup.ApiCaseViews.as_view()),#一直在用这个接口
+    # 获取用例组下的测试步骤用例
+    # 保存用例组
 
     path('delete-selected-cases', caseGroup.delete_selected_cases),
     path('stop-casing', caseGroup.stop_casing),
@@ -30,13 +32,21 @@ urlpatterns = [
     path('api-view', caseStep.ApiViews.as_view()),# 开始用到了
     #已用到功能
     # 保存单步骤
+    # 获取单步骤详情信息
+
+    path('test-api-data', caseStep.test_api_data),#
+    # 运行单步测试用例
 
     path('search-api', caseStep.search_api),
     path('run-api-cases', caseStep.run_api_cases),
     path('run-api-case-step', caseStep.run_api_case_step),
-    path('test-api-data', caseStep.test_api_data),
-    path('test-api-data', caseStep.test_api_data),
+
+
     path('search-case-by-api', caseStep.search_case_by_api),
 
-
+    # 用例步骤管理
+    path('steps/add', case_steps.add_steps),            # 添加步骤
+    path('steps/update', case_steps.update_step),       # 更新步骤
+    path('steps/delete', case_steps.delete_step),       # 删除步骤
+    path('steps/reorder', case_steps.reorder_steps),    # 调整步骤顺序
 ]

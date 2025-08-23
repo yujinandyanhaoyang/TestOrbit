@@ -36,7 +36,6 @@
   </el-dialog>
 
 
-
 </template>
 
 <script setup lang="ts">
@@ -45,17 +44,21 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { addCaseGroup } from '@/api/case/caseGroup';
 
 // 定义组件可以发射的事件
-const emit = defineEmits(['add-step', 'save-order']);
+const emit = defineEmits(['add-step', 'save-order', 'get-steps-data']);
 
-// 定义组件接收的属性
+// 定义组件接收的属性，包括ListDetail组件的引用
 const props = defineProps({
   caseName: {
     type: String,
-    default: '用例组001'
+    default: ''
   },
   moduleId: {
     type: String,
     default: ''
+  },
+  listDetailRef: {
+    type: Object,
+    default: null
   }
 });
 
@@ -63,7 +66,6 @@ const props = defineProps({
 import RegionVar from './env/region_var.vue';
 import GlobalVar from './env/global_var.vue';
 import ModulePath from './modulePath.vue';
-import { da } from 'element-plus/es/locales.mjs';
 
 
 // 表单引用
@@ -162,14 +164,42 @@ const handleSave = async () => {
   const module_id = formData.module_id || props.moduleId;
   const module_related = module_id ? [module_id] : [];
   
+  // 从ListDetail组件获取步骤数据
+  let steps = [];
+  
+  if (props.listDetailRef && typeof props.listDetailRef.getStepsData === 'function') {
+    steps = props.listDetailRef.getStepsData();
+    console.log('从ListDetail获取到的步骤数据:');
+    console.log('- 步骤数量:', steps.length);
+    console.log('- 完整数据:', steps);
+    
+    // 验证每个步骤的数据完整性
+    steps.forEach((step: any, index: number) => {
+      console.log(`步骤 ${index + 1} (ID: ${step.id}):`, {
+        step_name: step.step_name,
+        type: step.type,
+        params: step.params ? '有参数' : '无参数',
+        params_detail: step.params
+      });
+    });
+  } else {
+    console.warn('无法获取ListDetail组件引用或getStepsData方法');
+    console.log('props.listDetailRef:', props.listDetailRef);
+    if (props.listDetailRef) {
+      console.log('listDetailRef的方法:', Object.keys(props.listDetailRef));
+    }
+    // 使用空数组作为后备方案
+    steps = [];
+  }
+  
   // 组装请求体数据
   const requestData = {
     name,
     module_id,
     module_related,
     // 如果是编辑模式，需要提供id
-    id: props.moduleId ? 35 : undefined, // 这里可以根据实际情况修改或通过props传入
-    steps: [] // 这里可以从ListDetail组件获取步骤数据
+    id: props.moduleId ? 11 : undefined, // 这里可以根据实际情况修改或通过props传入
+    steps // 使用ListDetail组件提供的步骤数据
   };
   
   console.log('准备保存的数据:', requestData);
@@ -199,6 +229,12 @@ const handleSaveOrder = () => {
   // 触发保存顺序事件，ListDetail组件会监听此事件
   emit('save-order');
 }
+
+// 处理步骤更新事件
+const handleStepsUpdated = (updatedSteps: any[]) => {
+  console.log('步骤列表已更新:', updatedSteps);
+  // 这里可以添加其他处理逻辑，比如保存到状态管理器等
+};
 
 </script>
 

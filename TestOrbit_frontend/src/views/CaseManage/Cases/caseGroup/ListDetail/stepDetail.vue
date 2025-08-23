@@ -128,9 +128,9 @@ watch(() => props.stepParams, (newParams, oldParams) => {
   
   if (newParams) {
     // 更新主机
-      UrlInput.value = newParams.host;
+      UrlInput.value = newParams.host || '';
     // 更新路径
-      address.value = newParams.path;
+      address.value = newParams.path || '';
     // 更新请求方法  
       method.value = newParams.method as HttpMethod;
 
@@ -235,7 +235,9 @@ const handleSave = async () => {
       expect_source: [],
       output_mode: 1, // 默认值
       output_source: [],
-      is_case: true // 是测试用例步骤
+      is_case: true, // 是测试用例步骤
+      // 添加id字段：如果有stepId且不是新建步骤，则包含id字段（表示更新操作）
+      ...(props.stepId && props.stepId > 0 ? { id: props.stepId } : {})
     }
     
     console.log('保存步骤请求参数:', requestData)
@@ -247,13 +249,49 @@ const handleSave = async () => {
       ElMessage.success('保存成功')
       console.log('保存步骤响应:', res)
       
+      // 获取返回的api_id，这将作为步骤的新ID
+      const newStepId = res.results?.api_id || props.stepId;
+      const isNewStep = !props.stepId || props.stepId <= 0;
+      
+      console.log(`步骤保存成功 - ${isNewStep ? '新建' : '更新'} - API ID: ${newStepId}`);
+      
+      // 构建步骤数据
+      const stepData = {
+        id: newStepId, // 使用返回的api_id作为步骤ID
+        params: {
+          host: UrlInput.value,
+          name: stepName.value,
+          path: address.value,
+          api_id: newStepId, // 同时设置params中的api_id
+          method: method.value,
+          body_mode: requestData.body_mode,
+          host_type: requestData.host_type,
+          query_mode: requestData.query_mode,
+          body_source: requestConfig.value.body || {},
+          expect_mode: requestData.expect_mode,
+          header_mode: requestData.header_mode,
+          output_mode: requestData.output_mode,
+          query_source: requestConfig.value.querys,
+          ban_redirects: requestData.ban_redirects,
+          expect_source: requestData.expect_source,
+          header_source: requestConfig.value.headers,
+          output_source: requestData.output_source
+        },
+        step_name: stepName.value,
+        type: "api",
+        status: 4,
+        enabled: true,
+        controller_data: null,
+        retried_times: 0,
+        results: null
+      };
+      
       // 通知父组件步骤名称已更新
       emit('update:stepName', stepName.value);
       
-      // 通知父组件步骤已保存
-      if (props.stepId) {
-        emit('stepSaved', props.stepId, { name: stepName.value });
-      }
+      // 通知父组件步骤已保存，并传递完整的步骤数据
+      // 使用新的步骤ID（api_id）
+      emit('stepSaved', newStepId, stepData);
     } else {
       ElMessage.error(`保存失败: ${res?.message || '未知错误'}`)
     }

@@ -6,11 +6,11 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from apiData.models import ApiCaseModule, ApiCase, ApiModule,  ApiCaseStep, ApiForeachStep
-from apiData.serializers import  ApiCaseListSerializer,  ApiCaseSerializer, ApiCaseDetailSerializer
-from apiData.views.viewDef import  parse_create_foreach_steps,  copy_cases_func
+from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
+from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
+from apiData.views.viewDef import parse_create_foreach_steps, copy_cases_func
 from utils.comDef import get_module_related, get_case_sort_list
-from utils.constant import API,  API_CASE, API_FOREACH,WAITING, INTERRUPT
+from utils.constant import API,  API_CASE, API_FOREACH,WAITING, INTERRUPT, USER_API
 from utils.views import LimView
 from user.models import UserCfg
 
@@ -30,62 +30,137 @@ class ApiCaseViews(LimView):
 
     #获取用例组详情
     def get(self, request, *args, **kwargs):
+        
         req_params = request.query_params.dict()
-        # api_id查关联接口的时候用
-        case_id, api_id = req_params.get('id'), req_params.get('api_id')
+        
+        # step_order查关联接口的时候用
+        # 通过step_order查找步骤
+        # 每个具体步骤通过case_id+step_order唯一确定
+        case_id, step_order = req_params.get('id'), req_params.get('step_order')
+
         if case_id:  # 有case_id代表请求详情
+
+
             instance = ApiCase.objects.defer('report_data').get(id=case_id)
-            serializer = ApiCaseDetailSerializer(instance, context={'api_id': api_id, 'user_id': request.user.id})
-            return Response(data=serializer.data)
+            context = {'step_order': step_order, 'user_id': request.user.id}
+            
+            serializer = ApiCaseDetailSerializer(instance, context=context)
+            # print('✅ 序列化器创建完成')
+
+            # print("📤 开始数据序列化...")
+            serialized_data = serializer.data
+
+            # print('✅ 序列化完成!')
+            
+            return Response(data=serialized_data)
+        
         return self.list(request, *args, **kwargs)
 
     # 新增用例组方法
     def post(self, request, *args, **kwargs):
+        """处理用例组的新增和更新，包括所有步骤的保存
+        """
+        print('开始保存用例组\t')
         req_data = request.data
         case_id, steps, for_next_id = req_data.get('id'), req_data.get('steps'), None
         save_case_data = {field: req_data.get(field) for field in ('name', 'module_id', 'remark')
                           if field in req_data}
         try:
             with transaction.atomic():
-                if case_id:  # 代表修改用例
+                if case_id:  # 代表修改用例组
+                    print(f'存在case_id:{case_id},当前为修改用例组')
                     save_case_data.update({'updater_id': request.user.id, 'updated': datetime.datetime.now()})
                     ApiCase.objects.filter(id=case_id).update(**save_case_data)
                 else:
                     case = ApiCase.objects.create(**save_case_data)
                     case_id = case.id
+                
                 steps_objs, foreach_steps = [], []
                 have_foreach = False
-                for step in steps:
-                    step.update({'case_id': case_id, 'retried_times': 0})
-                    step.pop('id', None)
-                    step.pop('is_relation', None)
-                    if (s_type := step['type']) == API:
-                        step['api_id'] = step['params']['api_id']
+                api_data_to_create = []  # 存储需要创建的API数据
+                
+                print('进入保存用例步骤\t')
+                for step_index, step in enumerate(steps):
+                    print(f'正在处理第{step_index + 1}个步骤: {step}\t')
+
+                    # 设置步骤顺序和基本信息
+                    step_basic_data = {
+                        'case_id': case_id, 
+                        'step_order': step_index + 1,  # 从1开始的步骤顺序
+                        'step_name': step.get('step_name', ''),
+                        'type': step['type'],
+                        'enabled': step.get('enabled', True),
+                        'controller_data': step.get('controller_data'),
+                        'retried_times': step.get('retried_times', 0)
+                    }
+                    
+                    s_type = step['type']
+                    
+                    if s_type == API:
+                        # API类型步骤：创建ApiData实例并关联
+                        step_params = step.get('params', {})
+                        print(f'正在创建api_data\t')
+                        print(f'API步骤参数: {step_params}\t')
+                        # 创建步骤实例的ApiData
+                        api_data_dict = {
+                            'name': step.get('step_name', f'API步骤_{step_index + 1}'),
+                            'path': step_params.get('path', ''),
+                            'method': step_params.get('method', ''),
+                            'env_id': step_params.get('env_id'),
+                            'timeout': step_params.get('timeout', 30),
+                            'module_id': 'APM00000001',  # 默认步骤API模块
+                            'source': USER_API,
+                            'is_step_instance': True,
+                            'step_name': step.get('step_name', ''),
+                            'params': step_params,  # 所有参数存储在这里
+                            'creater_id': request.user.id,
+                            'updater_id': request.user.id
+                        }
+                        
                     elif s_type == API_CASE:
-                        step['quote_case_id'] = step['params']['case_related'][-1]
+                        # 用例引用类型步骤
+                        step_params = step.get('params', {})
+                        step_basic_data['quote_case_id'] = step_params.get('case_related', [])[-1] if step_params.get('case_related') else None
+                        steps_objs.append(ApiCaseStep(**step_basic_data))
+                        
                     elif s_type == API_FOREACH:
+                        # 循环步骤
                         have_foreach = True
-                        foreach_steps.append({'steps': step['params'].pop('steps')})
-                    steps_objs.append(ApiCaseStep(**step))
+                        foreach_steps.append({
+                            'steps': step.get('params', {}).get('steps', []), 
+                            'step_order': step_index + 1
+                        })
+                        steps_objs.append(ApiCaseStep(**step_basic_data))
+                    else:
+                        # 其他类型步骤（var, header, host, sql等）
+                        steps_objs.append(ApiCaseStep(**step_basic_data))
+                
+                
+                
+                # 处理循环步骤
                 if have_foreach:
-                    for_next_id = (ApiForeachStep.objects.aggregate(Max('id')).get('id__max') or 0) + 1
-                ApiCaseStep.objects.filter(case_id=case_id).delete()
-                ApiCaseStep.objects.bulk_create(steps_objs)
-                if have_foreach:
-                    foreach_step_ids = ApiCaseStep.objects.filter(
-                        case_id=case_id, type=API_FOREACH).values_list('id', flat=True).order_by('id')
-                    for i, foreach_step in enumerate(foreach_steps):
-                        foreach_step['step_id'] = foreach_step_ids[i]
+                    for_next_id = 1  # 循环步骤从1开始编号
+                    case_steps = ApiCaseStep.objects.filter(case_id=case_id, type=API_FOREACH)
+                    step_mapping = {step.step_order: step for step in case_steps}
+                    
                     save_step_objs = []
-                    for foreach_step in foreach_steps:  # foreach_step=[...'steps':{xx}]
-                        for_next_id = parse_create_foreach_steps(
-                            save_step_objs, foreach_step['steps'], foreach_step['step_id'], for_next_id)
+                    for foreach_step in foreach_steps:
+                        parent_step = step_mapping.get(foreach_step['step_order'])
+                        if parent_step:
+                            for_next_id = parse_create_foreach_steps(
+                                save_step_objs, foreach_step['steps'], parent_step, for_next_id)
                     ApiForeachStep.objects.bulk_create(save_step_objs)
         except Exception as e:
-            print('err', e.__traceback__.tb_lineno)
+            import traceback
+            error_info = traceback.format_exc()
+            print(f'\n错误发生在第 {e.__traceback__.tb_lineno} 行')
+            print(f'错误类型: {type(e).__name__}')
+            print(f'错误信息: {str(e)}')
+            print(f'完整的错误堆栈:\n{error_info}')
+            
             if '1062' in str(e):
                 return Response(data={'msg': '该用例名已存在！'}, status=status.HTTP_400_BAD_REQUEST)
-            return Response(data={'msg': '保存出错：' + str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data={'msg': f'保存出错：{str(e)}\n详细信息：{error_info}'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(data={'msg': '保存成功！', 'case_id': case_id})
 
     #删除用例组方法

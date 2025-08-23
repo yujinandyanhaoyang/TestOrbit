@@ -12,7 +12,7 @@ from openpyxl import load_workbook
 from requests import ReadTimeout
 from rest_framework.response import Response
 
-from apiData.models import ApiData, ApiCaseStep, ApiCase, ApiForeachStep
+from apiData.models import ApiCaseStep, ApiCase, ApiForeachStep
 from utils.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
     close_db_con, json_dumps, JSONEncoder, MyThread, json_loads, format_parm_type_v
 from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
@@ -26,27 +26,30 @@ from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 
-def create_api(req_data, default_params):
+def create_api(req_data, params):
     """
     创建自定义Api用例基础数据
     """
-    print("正在调用ApiData.objects.create函数创建新 API")
-    print(f"请求数据: {req_data}")
+    # print("正在调用ApiCaseStep.objects.create函数创建新 API")
+    # print(f"请求数据: {req_data}")
     # 因为唯一性可能会报错,所以需要在外层做捕获
-    api = ApiData.objects.create(
-        name=req_data['name'], path=req_data['path'], method=req_data['method'], default_params=default_params,
+    print("正在创建新的 API...")
+    api = ApiCaseStep.objects.create(
+        name=req_data['name'], path=req_data['path'], method=req_data['method'], params=params,
         timeout=req_data.get('timeout'), env_id=req_data['env_id'], source=USER_API,
         module_id=req_data['module_id'])
     print(f"创建的 API ID 为：{api.id}")
     return api.id
 
 
-def update_api(req_data, default_params, api_id, source):
+def update_api(req_data, params, api_id, source):
     """
     更新自定义Api用例基础数据
     """
-
-    update_fields = {'timeout': req_data.get('timeout'), 'default_params': default_params}
+    print('\t')
+    print('已进入updata_api函数，准备更新API数据')
+    print(f'已获得params:{params}')
+    update_fields = {'params': params}
     if source == USER_API:
         update_fields.update({field: req_data.get(field) for field in ('name', 'path', 'method')})
         env_id, module_id = req_data.get('env_id'), req_data.get('module_id')
@@ -54,7 +57,7 @@ def update_api(req_data, default_params, api_id, source):
             update_fields['env_id'] = env_id
         if module_id:
             update_fields['module_id'] = module_id
-    ApiData.objects.filter(id=api_id).update(**update_fields)
+    ApiCaseStep.objects.filter(id=api_id).update(**update_fields)
 
 
 def save_api(req_data, api_id, source):
@@ -65,15 +68,14 @@ def save_api(req_data, api_id, source):
     param_fields = []
     for key in ('header', 'query', 'body', 'expect', 'output'):
         param_fields.extend((f'{key}_source', f'{key}_mode'))
-    param_fields.extend(('host', 'host_type', 'ban_redirects'))
-    default_params = {key: req_data.get(key) for key in param_fields}
+    param_fields.extend(('host', 'host_type', 'path','method','ban_redirects'))
+    params = {key: req_data.get(key) for key in param_fields}
     print(f"已进入 save_api 函数，参数如下：")
     print(f"api_id: {api_id}, source: {source}")
     if api_id:
-        update_api(req_data, default_params, api_id, source)
+        update_api(req_data, params, api_id, source)
     else:
-        print("调用 create_api 函数创建新 API")
-        api_id = create_api(req_data, default_params)
+        api_id = create_api(req_data, params)
     return api_id
 
 
@@ -258,27 +260,72 @@ class ApiCasesActuator:
 
     def api(self, step, prefix_label, i=0):
         """
-          执行类型为接口的步骤
+        执行类型为接口的步骤
+        优化后：参数通过关联的ApiData获取，不再使用step['params']
         """
         upload_files_list = []
-        params = step['params']
-        if host := params.get('host') or '':
-            if params.get('host_type') == PRO_CFG:
-                # 直接从 Environment 获取 URL
-                environment = Environment.objects.filter(id=self.envir).first()
-                host = environment.url if environment else ''
-        elif self.default_host:
-            host = self.default_host
-        # 参数中包含了case_id则走库里面取接口信息，不然则使用传递的（调试时才会无case_id）
-        if api_id := params.get('api_id'):
+        
+        # 从关联的ApiData获取参数，而不是step['params']
+        if step.get('api_id') and isinstance(step.get('api_id'), int):
+            # 步骤关联了ApiData
+            api_id = step['api_id']
             api_base = self.api_data.get(api_id)
+            
             if not api_base:
-                api_base = ApiData.objects.filter(id=params['api_id']).annotate(
-                    api_base=JSONObject(path=F('path'), method=F('method'), timeout=F('timeout'))).values_list(
-                    'api_base', flat=True).first()
+                # 从ApiData获取完整的API数据
+                api_instance = ApiCaseStep.objects.filter(id=api_id).select_related('env').first()
+                
+                if not api_instance:
+                    return {'status': FAILED, 'results': f'找不到API数据(ID: {api_id})'}
+                
+                # 构建api_base数据
+                api_base = {
+                    'path': api_instance.path,
+                    'method': api_instance.method,
+                    'timeout': api_instance.timeout or self.timeout,
+                    'env_url': api_instance.env.url if api_instance.env else ''
+                }
+                
+                # 缓存API基础数据
                 self.api_data[api_id] = api_base
-            params.update(api_base)
-        url, method, timeout = host + params['path'], params['method'], params.get('timeout') or self.timeout
+            
+            # 使用ApiData.params作为参数源
+            params = api_instance.params or {} if 'api_instance' in locals() else {}
+            
+            # 从api_base获取基础API信息
+            url_path = api_base['path']
+            method = api_base['method']
+            timeout = api_base.get('timeout', self.timeout)
+            
+            # 确定主机地址
+            if api_base.get('env_url'):
+                host = api_base['env_url']
+            elif host := params.get('host') or '':
+                if params.get('host_type') == PRO_CFG:
+                    environment = Environment.objects.filter(id=self.envir).first()
+                    host = environment.url if environment else ''
+            elif self.default_host:
+                host = self.default_host
+            else:
+                host = ''
+                
+        else:
+            # 兼容旧的处理方式（逐步废弃）
+            params = step.get('params', {})
+            if host := params.get('host') or '':
+                if params.get('host_type') == PRO_CFG:
+                    environment = Environment.objects.filter(id=self.envir).first()
+                    host = environment.url if environment else ''
+            elif self.default_host:
+                host = self.default_host
+            else:
+                host = ''
+                
+            url_path = params.get('path', '')
+            method = params.get('method', 'GET')
+            timeout = params.get('timeout', self.timeout)
+        
+        url = host + url_path
         req_log = {'url': url, 'method': method, 'response': '无响应结果', 'res_header': '无响应头'}
         res_status, results = FAILED, ''
         try:
@@ -366,36 +413,6 @@ class ApiCasesActuator:
         self.clear_upload_files(upload_files_list)
         return {'status': res_status, 'results': {'msg': results, 'request_log': req_log}}
 
-    def header(self, step, prefix_label, i=0):
-        """
-         执行类型为请求头的步骤
-        """
-        if params := step['params']:
-            header = self.parse_source_params(params, i=i)
-            if not header.get('content-type'):
-                header['content-type'] = 'application/json'
-            self.default_header = header
-            self.params_source[HEADER_PARAM] = {name: {
-                'name': name, 'value': v, 'step_name': prefix_label + step['step_name'], 'type': HEADER_PARAM,
-                'param_type_id': STRING, **self.base_params_source} for name, v in header.items()}
-
-    def host(self, step, prefix_label, i=0):
-        """
-        执行类型为域名的步骤
-        """
-        params = step['params']
-        if params['host_type'] == DIY_CFG:
-            self.default_host = params['value']
-        else:
-            # 直接从 Environment 获取 URL
-            environment = Environment.objects.filter(id=params['value']).first()
-            self.default_host = environment.url if environment else ''
-            if not self.default_host:
-                return {'status': FAILED, 'results': '该环境没有配置请求地址！'}
-        self.params_source[HOST_PARAM]['请求地址'] = {
-            'name': '请求地址', 'value': self.default_host, 'type': HOST_PARAM,
-            'step_name': prefix_label + step['step_name'], 'param_type_id': STRING, **self.base_params_source}
-
     def case(self, step, prefix_label='', cascader_level=1, i=0):
         """
         执行类型为用例
@@ -413,18 +430,6 @@ class ApiCasesActuator:
             return {'status': FAILED, 'results': '步骤死循环或主计划步骤嵌套的子用例超过10层！'}
         return {'status': res_status, 'results': step_data}
 
-    def var(self, step, prefix_label='', i=0):
-        """
-          执行类型为全局变量的步骤
-        """
-        params = step['params']
-        if f'{self.envir}_mode' in params and f'{self.envir}_source' in params:
-            mode, data = params[f'{self.envir}_mode'], params[f'{self.envir}_source']
-            var = self.parse_source_params(data, mode, i, params_type=API_VAR)
-            for name, v in var.items():
-                self.params_source[VAR_PARAM][name] = {
-                    'name': name, 'value': v, 'step_name': prefix_label + step['step_name'], 'type': VAR_PARAM,
-                    'param_type_id': PY_TO_CONF_TYPE.get(str(type(v)), STRING), **self.base_params_source}
 
     def sql(self, step, prefix_label='', i=0):
         """
@@ -713,10 +718,23 @@ def parse_api_case_steps(case_ids=None, is_step=False):
     """
     step_data = []
     if case_ids:
-        step_data = list(ApiCaseStep.objects.filter(case_id__in=case_ids).annotate(
-        ).select_related('case', 'case__module', 'api').values(
-            'id', 'step_name', 'type', 'case_id', 'status', 'params', 'results', 'api_id',
-            'controller_data', 'enabled').order_by('id'))
+        # 注意：移除了'params'字段，因为已经从ApiCaseStep模型中移除
+        # 参数现在通过关联的ApiData.params获取
+        step_data = list(ApiCaseStep.objects.filter(case_id__in=case_ids).select_related(
+            'case', 'case__module', 'api').values(
+            'case_id', 'step_order', 'step_name', 'type', 'status', 'results', 'api_id',
+            'controller_data', 'enabled').order_by('case_id', 'step_order'))
+        
+        # 为每个步骤添加params字段，从关联的ApiData获取
+        for step in step_data:
+            if step['api_id']:
+                # 从关联的ApiData获取params
+                api_data = ApiCaseStep.objects.filter(id=step['api_id']).values('params').first()
+                step['params'] = api_data['params'] if api_data and api_data['params'] else {}
+            else:
+                # 没有关联API的步骤，params为空字典
+                step['params'] = {}
+        
         if not is_step:  # 如果非测试计划步骤而是执行测试用例，需要转为{case_id:[step,step],case_id2:[step,step]}的形式
             case_data = {case_id: [] for case_id in case_ids}  # {case1:steps,case2:steps}
             for step in step_data:
@@ -725,41 +743,67 @@ def parse_api_case_steps(case_ids=None, is_step=False):
     return step_data
 
 
-def parse_create_foreach_steps(save_step_objs, foreach_step, step_id, next_id, parent_id=None):
+def parse_create_foreach_steps(save_step_objs, foreach_step, parent_step, next_order, parent_id=None):
     """
     格式化循环控制器步骤为创建数据
+    parent_step: 父级ApiCaseStep实例
+    next_order: 下一个步骤的顺序号
     """
-
     for step in foreach_step:
         step.pop('results', None)
         if (s_type := step['type']) == API:
             step['api_id'] = step['params']['api_id']
         elif s_type == API_CASE:
             step['quote_case_id'] = step['params']['case_related'][-1]
-        step.update({'step_id': step_id, 'id': next_id, 'parent_id': parent_id})
+        step.update({'step': parent_step, 'step_order': next_order, 'parent_id': parent_id})
         save_step_objs.append(ApiForeachStep(**step))
-        next_id += 1
+        next_order += 1
         if s_type == API_FOREACH:
-            parse_create_foreach_steps(save_step_objs, step['params'].pop('steps', []), step_id, next_id,
-                                       step['id'])
-    return next_id
+            next_order = parse_create_foreach_steps(save_step_objs, step['params'].pop('steps', []), parent_step, next_order, step['step_order'])
+    return next_order
 
 
 def set_foreach_tree(_list):
     """
     生成循环控制器树
     """
+    print("🌳 set_foreach_tree 开始")
+    print(f"🌳 输入数据: {_list}")
+    print(f"🌳 输入数据长度: {len(_list) if _list else 0}")
+    
     _dict, tree = {}, []
+    
+    # 第一遍遍历：建立字典映射并初始化foreach步骤
+    print("🌳 第一遍遍历：建立映射...")
     for i in _list:
+        print(f"🌳 处理项目: {i}")
         _dict[i['id']] = i
         if i['type'] == API_FOREACH:
             i['params']['steps'] = []
+            print(f"🌳 初始化 foreach 步骤 {i['id']} 的 steps 数组")
+    
+    print(f"🌳 字典映射完成，共 {len(_dict)} 项")
+    
+    # 第二遍遍历：建立父子关系
+    print("🌳 第二遍遍历：建立父子关系...")
     for i in _list:
         node = i
-        if node['parent_id'] is not None:
-            _dict[node['parent_id']]['params']['steps'].append(node)
+        parent_id = node['parent_id']
+        print(f"🌳 节点 {node['id']} 的父节点: {parent_id}")
+        
+        if parent_id is not None:
+            if parent_id in _dict:
+                _dict[parent_id]['params']['steps'].append(node)
+                print(f"🌳 ✅ 节点 {node['id']} 添加到父节点 {parent_id}")
+            else:
+                print(f"🌳 ❌ 父节点 {parent_id} 不存在")
         else:
             tree.append(node)
+            print(f"🌳 ✅ 根节点 {node['id']} 添加到树")
+    
+    print(f"🌳 树构建完成，根节点数: {len(tree)}")
+    print(f"🌳 最终树结构: {tree}")
+    print("🌳 set_foreach_tree 完成")
     return tree
 
 

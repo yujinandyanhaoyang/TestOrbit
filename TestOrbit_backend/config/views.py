@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from apiData.models import ApiModule, ApiData, ApiCase
+from apiData.models import ApiModule, ApiCaseStep, ApiCase
 from apiData.views.viewDef import ApiCasesActuator
 from utils.comDef import db_connect, get_proj_envir_db_data, close_db_con
 from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_SQL, VAR_PARAM
@@ -94,7 +94,7 @@ def environment_overview(request):
     pro_dict = {}
     total_count = 0
     if view_type == API:
-        data = ApiData.objects.values('id', 'project_id', 'project__name')
+        data = ApiCaseStep.objects.values('id', 'project_id', 'project__name')
         for v in data:
             if (pro_id := v['project_id']) not in pro_dict:
                 pro_dict[pro_id] = {'name': v['project__name'], 'count': 0}
@@ -221,7 +221,7 @@ def get_index_statistics(request):
         'project_new_count': 0, 'api_count': 0, 'api_new_count': 0, 'case_count': 0, 'case_new_count': 0,
         'api_data': {}, 'case_data': {}}
     proj_data = Environment.objects.values('id', 'created').order_by('-created')
-    api_data = ApiData.objects.annotate(project_name=F('project__name')).values('created', 'project_name')
+    api_data = ApiCaseStep.objects.annotate(project_name=F('project__name')).values('created', 'project_name')
     case_data = ApiCase.objects.annotate(creater_name=Concat(
         'creater__real_name', Value('-'), 'creater__username')).filter(
         is_deleted=False).values('created', 'creater_name')

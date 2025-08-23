@@ -49,7 +49,6 @@ import type { CollapseModelValue } from 'element-plus'
 import draggable from 'vuedraggable'
 import type { CaseGroupDetailResponse, CaseGroupDetail as CaseGroupDetailType } from '@/api/case/caseGroup/types'
 import type { CaseStep, ApiStepParams } from '@/api/case/caseStep/types'
-import { getStepDetail } from '@/api/case/caseStep'
 
 // 定义组件props
 const props = defineProps<{
@@ -209,14 +208,59 @@ const getStepParams = (stepId: number): ApiStepParams | undefined => {
 };
 
 // 处理步骤保存事件
-const handleStepSaved = (stepId: number, data: any) => {
-  console.log(`步骤 ${stepId} 已保存:`, data);
-  // 可以在这里添加其他逻辑，比如更新步骤列表、向后端发送数据等
+const handleStepSaved = (stepId: number, stepData: any) => {
+  console.log(`步骤 ${stepId} 已保存:`, stepData);
+  
+  // 从stepData中提取api_id，这个值来自API响应的results.api_id
+  const apiId = stepData.id || stepData.params?.api_id;
+  console.log(`步骤保存后的API ID: ${apiId}`);
+  
+  // 更新steps数组中对应步骤的api_id
+  const stepIndex = steps.value.findIndex(step => step.id === stepId);
+  if (stepIndex !== -1) {
+    // 更新步骤的api_id
+    steps.value[stepIndex].api_id = apiId;
+    console.log(`已更新步骤 ${stepId} 的API ID为: ${apiId}`);
+  }
+  
+  // 更新caseGroupData中的步骤数据
+  if (caseGroupData.value && caseGroupData.value.steps) {
+    const caseStepIndex = caseGroupData.value.steps.findIndex(step => step.id === stepId);
+    
+    if (caseStepIndex !== -1) {
+      // 更新现有步骤
+      caseGroupData.value.steps[caseStepIndex] = stepData;
+    } else {
+      // 添加新步骤
+      caseGroupData.value.steps.push(stepData);
+    }
+  } else {
+    // 如果caseGroupData不存在或没有steps数组，则初始化
+    if (!caseGroupData.value) {
+      caseGroupData.value = {
+        id: 0,
+        name: '',
+        remark: null,
+        steps: [],
+        module_id: '',
+        latest_run_time: '',
+        updated: '',
+        module_related: [],
+        only_show: false
+      };
+    }
+    if (!caseGroupData.value.steps) {
+      caseGroupData.value.steps = [];
+    }
+    caseGroupData.value.steps.push(stepData);
+  }
+  
+  console.log('更新后的caseGroupData.steps:', caseGroupData.value.steps);
+  console.log('更新后的steps数组:', steps.value);
 };
 
-// 折叠面板变更事件
-const handleChange = async (val: CollapseModelValue) => {
-  
+// 折叠面板变更事件 - 简化版，只负责展示面板
+const handleChange = (val: CollapseModelValue) => {
   // 获取当前打开的步骤ID
   const currentStepId = Array.isArray(val) ? val[0] : val;
 
@@ -225,197 +269,23 @@ const handleChange = async (val: CollapseModelValue) => {
     return;
   }
   
-  try {
-    // 获取步骤详情
-    const stepId = Number(currentStepId);
-    console.log('开始处理步骤详情, 步骤ID:', stepId);
-    
-    // 查找当前步骤
-    const currentStep = steps.value.find(s => s.id === stepId);
-    if (!currentStep) {
-      console.warn(`找不到ID为${stepId}的步骤`);
-      return;
-    }
-    
-    console.log('找到当前步骤:', currentStep);
-    
-    // 检查是否可以从caseGroupData中获取完整的步骤参数
-    if (caseGroupData.value && caseGroupData.value.steps) {
-      const apiStep = caseGroupData.value.steps.find(s => s.id === stepId);
-      if (apiStep && apiStep.params) {
-        console.log('从用例组数据中找到步骤参数:', apiStep.params);
-        
-        // 检查步骤是否有API ID，如果没有但步骤参数中有，则更新步骤的API ID
-        if (!currentStep.api_id && apiStep.params.api_id) {
-          currentStep.api_id = apiStep.params.api_id;
-          console.log(`更新步骤${stepId}的API ID为:`, currentStep.api_id);
-        }
-        
-        // 检查是否需要从API获取额外信息
-        if (currentStep.api_id && (!apiStep.params.path || !apiStep.params.method)) {
-          // 从API获取步骤详情，使用API ID
-          loading.value = true;
-          console.log(`步骤参数缺少path或method，使用API ID ${currentStep.api_id}获取步骤详情`);
-          const response = await getStepDetail(currentStep.api_id);
-          loading.value = false;
-          
-          if (response && response.code === 200) {
-            console.log('获取步骤详情成功:', response.results);
-            
-            // 使用类型断言处理返回的数据
-            const apiDetails = response.results as any;
-            
-            // 更新参数
-            if ('path' in apiDetails && !apiStep.params.path) {
-              apiStep.params.path = apiDetails.path;
-            }
-            if ('method' in apiDetails && !apiStep.params.method) {
-              apiStep.params.method = apiDetails.method;
-            }
-            if ('host' in apiDetails && !apiStep.params.host) {
-              apiStep.params.host = apiDetails.host;
-            }
-            console.log('更新后的步骤参数:', apiStep.params);
-          }
-        }
-        
-        // 强制触发组件更新
-        steps.value = [...steps.value]; // 创建数组的新副本触发响应式更新
-            
-        // 手动触发activeNames的变更来强制组件重新渲染
-        activeNames.value = [];
-        setTimeout(() => {
-          activeNames.value = [stepId.toString()];
-        }, 10);
-        
-        ElMessage.success('步骤详情已加载');
-      } else {
-        console.warn(`在用例组数据中找不到步骤${stepId}的参数`);
-        
-        // 如果步骤有API ID，但在用例组数据中找不到参数，则从API获取详情
-        if (currentStep.api_id) {
-          await loadStepDetailFromApi(stepId, currentStep.api_id);
-        } else {
-          ElMessage.warning('此步骤没有足够的参数信息');
-        }
-      }
-    } else {
-      console.warn('用例组数据不完整，无法获取步骤参数');
-      
-      // 如果步骤有API ID，从API获取详情
-      if (currentStep.api_id) {
-        await loadStepDetailFromApi(stepId, currentStep.api_id);
-      } else {
-        ElMessage.warning('此步骤没有关联的API，无法获取详情');
-      }
-    }
-  } catch (error) {
-    loading.value = false;
-    console.error('处理步骤详情出错:', error);
-    ElMessage.error('处理步骤详情出错');
+  // 获取步骤详情
+  const stepId = Number(currentStepId);
+  console.log('展开步骤详情, 步骤ID:', stepId);
+  
+  // 查找当前步骤
+  const currentStep = steps.value.find(s => s.id === stepId);
+  if (!currentStep) {
+    console.warn(`找不到ID为${stepId}的步骤`);
+    return;
   }
+  
+  console.log('正在展示步骤:', currentStep);
 };
 
-// 从API加载步骤详情
-const loadStepDetailFromApi = async (stepId: number, apiId: number) => {
-  loading.value = true;
-  try {
-    console.log(`正在使用API ID ${apiId}获取步骤详情`);
-    const response = await getStepDetail(apiId);
-    
-    if (response && response.code === 200) {
-      console.log('获取步骤详情成功:', response.results);
-      
-      // 检查响应数据结构
-      if (response.results && typeof response.results === 'object') {
-        const apiDetails = response.results as any;
-        
-        // 构建更新的参数对象
-        const updatedParams: any = {
-          api_id: apiId
-        };
-        
-        // 添加需要的字段
-        if ('name' in apiDetails) updatedParams.name = apiDetails.name;
-        if ('load_name' in apiDetails) updatedParams.load_name = apiDetails.load_name;
-        if ('path' in apiDetails) updatedParams.path = apiDetails.path;
-        if ('method' in apiDetails) updatedParams.method = apiDetails.method;
-        if ('host' in apiDetails) updatedParams.host = apiDetails.host;
-        
-        // 确保caseGroupData结构完整
-        if (!caseGroupData.value) {
-          caseGroupData.value = { 
-            id: 0, 
-            name: '', 
-            remark: null,
-            steps: [], 
-            module_id: '', 
-            latest_run_time: '', 
-            updated: '',
-            module_related: [],
-            only_show: false
-          };
-        }
-        
-        // 安全地访问steps属性
-        const caseSteps = caseGroupData.value?.steps || [];
-        
-        // 查找步骤索引
-        const stepIndex = caseSteps.findIndex(s => s.id === stepId);
-        
-        if (stepIndex !== -1) {
-          // 更新现有步骤
-          if (!caseSteps[stepIndex].params) {
-            caseSteps[stepIndex].params = updatedParams;
-          } else {
-            caseSteps[stepIndex].params = {
-              ...caseSteps[stepIndex].params,
-              ...updatedParams
-            };
-          }
-        } else {
-          // 添加新步骤
-          caseSteps.push({
-            id: stepId,
-            step_name: updatedParams.name || `步骤${stepId}`,
-            params: updatedParams,
-            type: 'api',
-            status: 0,
-            enabled: true,
-            controller_data: null,
-            retried_times: 0,
-            results: null
-          });
-        }
-        
-        // 如果caseGroupData存在，更新其steps属性
-        if (caseGroupData.value) {
-          caseGroupData.value.steps = [...caseSteps];
-        }
-        
-        console.log('更新后的步骤参数:', caseSteps.find(s => s.id === stepId)?.params);
-        
-        // 强制触发更新
-        steps.value = [...steps.value];
-        
-        // 手动触发重新渲染
-        activeNames.value = [];
-        setTimeout(() => {
-          activeNames.value = [stepId.toString()];
-        }, 10);
-        
-        ElMessage.success('步骤详情已更新');
-      }
-    } else {
-      ElMessage.error('获取步骤详情失败');
-    }
-  } catch (error) {
-    console.error('从API获取步骤详情出错:', error);
-    ElMessage.error('获取步骤详情出错');
-  } finally {
-    loading.value = false;
-  }
-};
+// 此函数已不再需要，因为后端直接提供所有步骤参数
+// 空的两行注释用来占位，保持代码结构清晰
+//
 
 
 
@@ -462,7 +332,56 @@ const setCaseGroupDetail = (response: CaseGroupDetailResponse) => {
 defineExpose({
   addNewStep,
   saveStepOrder,
-  setCaseGroupDetail
+  setCaseGroupDetail,
+  // 添加获取步骤数据的方法
+  getStepsData: () => {
+    console.log('getStepsData被调用，当前steps:', steps.value);
+    console.log('当前caseGroupData.steps:', caseGroupData.value?.steps);
+    
+    // 返回符合CaseStep格式的数据数组
+    if (caseGroupData.value?.steps && caseGroupData.value.steps.length > 0) {
+      // 如果有完整的步骤数据，直接返回
+      console.log('返回完整的步骤数据:', caseGroupData.value.steps);
+      return caseGroupData.value.steps;
+    }
+    
+    // 如果没有完整的步骤数据，则为每个步骤构建基础的步骤结构
+    const stepsData = steps.value.map(step => {
+      const stepParams = getStepParams(step.id);
+      
+      return {
+        id: step.id,
+        step_name: step.title,
+        type: 'api',
+        status: 4,
+        enabled: true,
+        controller_data: null,
+        retried_times: 0,
+        results: null,
+        params: stepParams || {
+          host: '',
+          name: step.title,
+          path: '',
+          method: 'GET' as const,
+          body_mode: 1,
+          host_type: 1,
+          query_mode: 1,
+          body_source: {},
+          expect_mode: 1,
+          header_mode: 1,
+          output_mode: 1,
+          query_source: [],
+          ban_redirects: false,
+          expect_source: [],
+          header_source: [],
+          output_source: []
+        }
+      };
+    });
+    
+    console.log('构建的步骤数据:', stepsData);
+    return stepsData;
+  }
 });
 </script>
 

@@ -5,9 +5,9 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from apiData.models import ApiCase, ApiModule, ApiData, ApiCaseStep, ApiForeachStep
+from apiData.models import ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
-from apiData.views.viewDef import save_api, parse_api_case_steps, run_api_case_func, ApiCasesActuator,  go_step, monitor_interrupt
+from apiData.views.viewDef import save_api, parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
 from utils.comDef import MyThread
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.diyException import CaseCascaderLevelError
@@ -22,21 +22,21 @@ from user.models import UserCfg
 """
 
 class ApiViews(LimView):
-    queryset = ApiData.objects.order_by(
-        '-updated').select_related('creater', 'updater')
+    queryset = ApiCaseStep.objects.all().select_related('case')
     serializer_class = ApiDataListSerializer
-    filterset_fields = ('module_id', 'name', 'status', 'method')
-    ordering_fields = ('created', 'name', 'updated')
+    filterset_fields = ('case_id', 'name', 'status', 'method')
+    ordering_fields = ('name',)
 
     def get(self, request, *args, **kwargs):
         req_params = request.query_params.dict()
         api_id, is_case = req_params.get('id'), req_params.get('is_case')
+        print(f'查看当前测试步骤的详情信息：api_id: {api_id}')
         if api_id:  # 传递了case_id代表查详情
             extra_annotate, extra_fields = {}, []
             if not is_case:  # 代表需要接口的default测试数据
-                extra_annotate, extra_fields = {'params': F('default_params')}, ('params',)
-            api_data = ApiData.objects.filter(id=api_id).annotate(
-                api_id=F('id'), load_name=Concat('env__name', Value('-'), 'name', Value('-'), 'path'),
+                extra_annotate, extra_fields = {}, ('params',)
+            api_data = ApiCaseStep.objects.filter(id=api_id).annotate(
+                api_id=F('id'), load_name=Concat('env_id__name', Value('-'), 'name', Value('-'), 'path'),
                 **extra_annotate).values('api_id', 'name', 'load_name', 'path', 'timeout',
                                          'method', 'env_id', 'source', *extra_fields).first()
             if not api_data:
@@ -46,46 +46,55 @@ class ApiViews(LimView):
 
     # 新增或更新测试步骤
     def post(self, request, *args, **kwargs):
-        print("打印请求数据，检查处理方法是否有误:")
-        print(request.data)
+        # print("打印请求数据，检查处理方法是否有误:")
+        # print(request.data)
         req_data = request.data
-        is_case = req_data.get('is_case')
         
         # 技术债务处理：由于project和environment表名互换，前端发送的project_id实际上是env_id
         # 我们需要确定实际的project_id以创建默认模块
         env_id = req_data['env_id']  # 前端发送的project_id实际上是env_id
         
-        if is_case:
-            print("is_case为True，表示是创建API测试用例")
-            api_data = ApiData.objects.filter(
-                env_id=env_id, 
-                path=req_data['path'], 
-                method=req_data['method']
-                ).values(
-                'id', 
-                'source'
-                ).first() or {}
-            api_id, source = api_data.get('id'), api_data.get('source', USER_API)
+        # 优化：使用请求体中的id字段来判断是新增还是更新
+        api_id = req_data.get('api_id')  # 如果前端传了id，说明是更新操作
+        
+        if api_id:
+            # 更新操作：根据提供的id查找API
+            print(f"更新模式：API ID = {api_id}")
+            source = ApiCaseStep.objects.filter(id=api_id).values_list('source', flat=True).first()
+            if not source:
+                return Response(data={'msg': f'指定的API不存在！(ID: {api_id})'}, status=status.HTTP_400_BAD_REQUEST)
+            print(f"找到API，source = {source}")
         else:
-            print('is_case为False，表示是更新API测试用例')
-            api_id = req_data.get('api_id')
-            source = ApiData.objects.filter(id=api_id).values_list('source', flat=True).first() if api_id else None
-        try:
-            print("调用save_api函数保存API数据")
+            # 新增操作：创建新API
+            print("新增模式：创建新API")
+            api_id = None
+            source = USER_API
             
+        try:            
             #保存测试步骤前预处理req_data
             #暂时指定module_id = APM00000001,后期优化后使用具体模块进行替换
+#标记此处，后续项目升级需要修改默认module_id。333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
             req_data['module_id'] = 'APM00000001'
 
             used_api_id = save_api(req_data, api_id, source)  # 存储测试数据和基础测试用例
+            
+            # 根据操作类型提供更清晰的成功消息
+            if api_id:
+                operation_msg = f'API更新成功！(API ID: {used_api_id})'
+            else:
+                operation_msg = f'API创建成功！(API ID: {used_api_id})'
+            print(operation_msg)
+            
         except IntegrityError as e:
-            print(f"IntegrityError: {str(e)}")
-            # 提供更详细的错误信息，帮助调试
-            return Response(data={'msg': f'该接口已在项目中存在！(项目ID={env_id}, 路径={req_data["path"]}, 方法={req_data["method"]})'}, status=status.HTTP_400_BAD_REQUEST)
+            # 简化错误处理：只处理真正的完整性错误，不限制重复API创建
+            operation_desc = "更新" if api_id else "创建"
+            return Response(data={'msg': f'{operation_desc}API时发生数据库约束错误: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print(f"Exception: {str(e)}")
-            return Response(data={'msg': f'创建API时出错: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(data={'msg': '保存成功！', 'results': {'api_id': used_api_id}})
+            # print(f"Exception: {str(e)}")
+            operation_desc = "更新" if api_id else "创建"
+            return Response(data={'msg': f'{operation_desc}API时出错: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data={'msg': operation_msg, 'results': {'api_id': used_api_id}})
 
 
 @api_view(['GET'])
@@ -94,10 +103,10 @@ def search_api(request):
     搜索接口
     """
     req_params = request.query_params.dict()
-    case_data = ApiData.objects.filter(
+    case_data = ApiCaseStep.objects.filter(
         Q(name__icontains=req_params['search']) | Q(path__icontains=req_params['search'])).annotate(
-        api_id=F('id'), value=Concat('project__name', Value('-'), 'name', Value('-'), 'path', Value('-'), 'method'),
-        label=Concat('project__name', Value('-'), 'name', Value('-'), 'path', Value('-'), 'method')).values(
+        api_id=F('id'), value=Concat('case__name', Value('-'), 'name', Value('-'), 'path', Value('-'), 'method'),
+        label=Concat('case__name', Value('-'), 'name', Value('-'), 'path', Value('-'), 'method')).values(
         'value', 'label', 'api_id')
     return Response(data=case_data)
 
@@ -179,8 +188,9 @@ def get_api_report(request):
 @api_view(['POST'])
 def test_api_data(request):
     """
-    调试API接口请求
+    调试API接口请求。运行单步骤用例
     """
+    # print("调试API接口请求。运行单步骤用例")
     req_data, user_id = request.data, request.user.id
     actuator_obj = ApiCasesActuator(user_id)
     req_data['type'] = API
