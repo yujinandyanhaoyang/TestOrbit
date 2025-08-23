@@ -26,53 +26,51 @@ from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 
-def create_api(req_data):
+def create_api(step,env_id,case_id):
     """
     创建自定义Api用例基础数据
     """
     # print("正在调用ApiCaseStep.objects.create函数创建新 API")
     # print("正在创建新的 API...")
     step = ApiCaseStep.objects.create(
-        type=req_data['steps'][0]['type'], 
-        enabled=req_data['steps'][0]["enabled"],
-        step_name=req_data['steps'][0]['step_name'], 
-        step_order=req_data['steps'][0]['step_order'],
-        params=req_data['steps'][0]['params'],
-        results=req_data['steps'][0]['results'],
+        type=step['type'], 
+        enabled=step["enabled"],
+        step_name=step['step_name'], 
+        step_order=step['step_order'],
+        params=step['params'],
+        results=step['results'],
         timeout=30,  # 设置默认值
         source=USER_API,
-        env_id=req_data.get("env_id"), 
-        case_id=req_data.get("case_id"),)
+        env_id=env_id, 
+        case_id=case_id,)
     print(f"创建的 API ID 为：{step.id}")
     return step.id
 
 
-def update_step(req_data, step_id):
+def update_step(step, step_id, env_id):
     """
     更新自定义Api用例基础数据
     """
-    print('\t')
-    print('已进入updata_api函数，准备更新API数据')
     ApiCaseStep.objects.filter(id=step_id).update(
-        type=req_data['steps'][0]['type'], 
-        enabled=req_data['steps'][0]["enabled"],
-        step_name=req_data['steps'][0]['step_name'], 
-        step_order=req_data['steps'][0]['step_order'],
-        params=req_data['steps'][0]['params'],
-        results=req_data['steps'][0]['results'],
-        env_id=req_data.get("env_id"))
+        type=step['type'], 
+        enabled=step["enabled"],
+        step_name=step['step_name'], 
+        step_order=step['step_order'],
+        params=step['params'],
+        results=step['results'],
+        env_id=env_id)
     print(f"{step_id} 更新成功")
 
 
-def save_step(req_data, step_id):
+def save_step(step, step_id, env_id, case_id):
     """
     创建用例步骤
     """
     print(f"已进入 save_step 函数，参数如下：")
     if step_id:
-        update_step(req_data, step_id)
+        update_step(step, step_id, env_id)
     else:
-        step_id = create_api(req_data)
+        step_id = create_api(step,env_id,case_id)
     return step_id
 
 

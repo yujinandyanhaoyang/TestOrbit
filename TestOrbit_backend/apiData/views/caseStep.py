@@ -48,25 +48,23 @@ class ApiViews(LimView):
     # 新增或更新测试步骤
     def post(self, request, *args, **kwargs):
         req_data = request.data
-        # print(f'请求数据: {req_data}')
+        step = req_data['steps'][0]
+        env_id = req_data.get('env_id')
         case_id = req_data.get('case_id')
 
-        if req_data['steps'][0].get('step_id'):
-            step_id = req_data['steps'][0]['step_id']
+        if step.get('step_id'):
+            step_id = step['step_id']
             # 更新操作：通过case_id和step_id查找步骤
-            step = ApiCaseStep.objects.filter(case_id=case_id, id=step_id).first()
-            
-            if not step:
+            step_checked = ApiCaseStep.objects.filter(case_id=case_id, id=step_id).first()
+
+            if not step_checked:
                 return Response(data={'msg': f'未找到对应的步骤！(case_id: {case_id}, step_id: {step_id})'}, status=status.HTTP_400_BAD_REQUEST)
-            source = step.source
-            print(f"找到步骤，source = {source}, step_id = {step_id}")
         else:
             # 新增操作：创建新步骤
             step_id = None
-            source = USER_API
-            
+
         try:            
-            used_step_id = save_step(req_data, step_id)  # 存储测试数据和基础测试用例
+            used_step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
             
             # 根据操作类型提供更清晰的成功消息
             if step_id:
@@ -84,8 +82,9 @@ class ApiViews(LimView):
             operation_desc = "更新" if step_id else "创建"
             return Response(data={'msg': f'{operation_desc}步骤时出错: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(data={'msg': operation_msg, 'results': {'step_id': used_step_id}})
+        return Response(data={'msg': operation_msg, 'data': {'step_id': used_step_id}})
 
+    
 
 @api_view(['GET'])
 def search_api(request):
@@ -138,14 +137,14 @@ def run_api_case_step(request):
     if res['status'] != SUCCESS:
         if s_type in (API_CASE, API_FOREACH):
             res_msg = '请前往步骤详情中查看失败或跳过原因！'
-        elif isinstance(res['results'], dict):
-            res_msg = res['results'].get('msg')
+        elif isinstance(res['data'], dict):
+            res_msg = res['data'].get('msg')
         else:
-            res_msg = str(res['results'])
+            res_msg = str(res['data'])
     UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
     set_user_temp_params(actuator_obj.params_source, request.user.id)
-    return Response({'msg': res_msg, 'results': {'status': res['status'], 'retried_times': res.get('retried_times'),
-                                                 'results': res.get('results')}})
+    return Response({'msg': res_msg, 'data': {'status': res['status'], 'retried_times': res.get('retried_times'),
+                                                 'data': res.get('data')}})
 
 
 @api_view(['GET'])
@@ -187,7 +186,7 @@ def test_api_data(request):
     res = go_step(actuator_obj, req_data, i=0)
     UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
     set_user_temp_params(actuator_obj.params_source, request.user.id)
-    return Response(res.get('results', {}))
+    return Response(res.get('data', {}))
 
 
 @api_view(['GET'])

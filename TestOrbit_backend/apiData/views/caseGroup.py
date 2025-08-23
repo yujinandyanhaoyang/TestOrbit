@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
-from apiData.views.viewDef import parse_create_foreach_steps, copy_cases_func
+from apiData.views.viewDef import parse_create_foreach_steps, copy_cases_func, save_step
 from utils.comDef import get_module_related, get_case_sort_list
 from utils.constant import API,  API_CASE, API_FOREACH,WAITING, INTERRUPT, USER_API
 from utils.views import LimView
@@ -58,16 +58,20 @@ class ApiCaseViews(LimView):
 
     # 新增用例组方法
     def post(self, request, *args, **kwargs):
-        """处理用例组的新增和更新，包括所有步骤的保存
+        """
+        处理用例组的新增和更新，包括所有步骤的保存
         """
         print('开始保存用例组\t')
         req_data = request.data
-        case_id, steps, for_next_id = req_data.get('id'), req_data.get('steps'), None
+        case_id  = req_data.get('id')
+        env_id = req_data.get('env_id')
+        steps = req_data.get('steps')
+        for_next_id =  None
         save_case_data = {field: req_data.get(field) for field in ('name', 'module_id', 'remark')
                           if field in req_data}
         try:
             with transaction.atomic():
-                if case_id:  # 代表修改用例组
+                if case_id:  # case_id存在，代表修改用例组
                     print(f'存在case_id:{case_id},当前为修改用例组')
                     save_case_data.update({'updater_id': request.user.id, 'updated': datetime.datetime.now()})
                     ApiCase.objects.filter(id=case_id).update(**save_case_data)
@@ -77,63 +81,38 @@ class ApiCaseViews(LimView):
                 
                 steps_objs, foreach_steps = [], []
                 have_foreach = False
-                api_data_to_create = []  # 存储需要创建的API数据
                 
                 print('进入保存用例步骤\t')
-                for step_index, step in enumerate(steps):
-                    print(f'正在处理第{step_index + 1}个步骤: {step}\t')
-
-                    # 设置步骤顺序和基本信息
-                    step_basic_data = {
-                        'case_id': case_id, 
-                        'step_order': step_index + 1,  # 从1开始的步骤顺序
-                        'step_name': step.get('step_name', ''),
-                        'type': step['type'],
-                        'enabled': step.get('enabled', True),
-                        'controller_data': step.get('controller_data'),
-                        'retried_times': step.get('retried_times', 0)
-                    }
-                    
+                for step in steps:
                     s_type = step['type']
                     
                     if s_type == API:
-                        # API类型步骤：创建ApiData实例并关联
-                        step_params = step.get('params', {})
-                        print(f'正在创建api_data\t')
-                        print(f'API步骤参数: {step_params}\t')
-                        # 创建步骤实例的ApiData
-                        api_data_dict = {
-                            'name': step.get('step_name', f'API步骤_{step_index + 1}'),
-                            'path': step_params.get('path', ''),
-                            'method': step_params.get('method', ''),
-                            'env_id': step_params.get('env_id'),
-                            'timeout': step_params.get('timeout', 30),
-                            'module_id': 'APM00000001',  # 默认步骤API模块
-                            'source': USER_API,
-                            'is_step_instance': True,
-                            'step_name': step.get('step_name', ''),
-                            'params': step_params,  # 所有参数存储在这里
-                            'creater_id': request.user.id,
-                            'updater_id': request.user.id
-                        }
+
+                        # 检查是否存在id，决定是更新还是创建
+                        if step.get('id'):
+                            step_id = step['id']
+                        else:
+                            step_id = None      
+                        used_step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
+
+                        # 暂时不考虑其他类型
+                    # elif s_type == API_CASE:
+                    #     # 用例引用类型步骤
+                    #     step_params = step.get('params', {})
+                    #     step_basic_data['quote_case_id'] = step_params.get('case_related', [])[-1] if step_params.get('case_related') else None
+                    #     steps_objs.append(ApiCaseStep(**step_basic_data))
                         
-                    elif s_type == API_CASE:
-                        # 用例引用类型步骤
-                        step_params = step.get('params', {})
-                        step_basic_data['quote_case_id'] = step_params.get('case_related', [])[-1] if step_params.get('case_related') else None
-                        steps_objs.append(ApiCaseStep(**step_basic_data))
-                        
-                    elif s_type == API_FOREACH:
-                        # 循环步骤
-                        have_foreach = True
-                        foreach_steps.append({
-                            'steps': step.get('params', {}).get('steps', []), 
-                            'step_order': step_index + 1
-                        })
-                        steps_objs.append(ApiCaseStep(**step_basic_data))
-                    else:
-                        # 其他类型步骤（var, header, host, sql等）
-                        steps_objs.append(ApiCaseStep(**step_basic_data))
+                    # elif s_type == API_FOREACH:
+                    #     # 循环步骤
+                    #     have_foreach = True
+                    #     foreach_steps.append({
+                    #         'steps': step.get('params', {}).get('steps', []), 
+                    #         'step_order': step_index + 1
+                    #     })
+                    #     steps_objs.append(ApiCaseStep(**step_basic_data))
+                    # else:
+                    #     # 其他类型步骤（var, header, host, sql等）
+                    #     steps_objs.append(ApiCaseStep(**step_basic_data))
                 
                 
                 
