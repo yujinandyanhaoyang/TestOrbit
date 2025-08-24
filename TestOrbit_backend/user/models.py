@@ -29,7 +29,7 @@ class UserEditModel(models.Model):
 class UserCfg(models.Model):
     user = models.OneToOneField(to=LimUser, on_delete=models.CASCADE, primary_key=True, verbose_name="关联用户")
     envir = models.ForeignKey(to=Environment, default=1, on_delete=models.CASCADE, verbose_name="默认用户环境")
-    failed_stop = models.BooleanField(default=True, verbose_name="执行失败是否停止（跳过）执行")
+    failed_stop = models.BooleanField(default=False, verbose_name="执行失败是否停止（跳过）执行")
     only_failed_log = models.BooleanField(default=False, verbose_name="仅记录失败的日志")
     exec_status = models.SmallIntegerField(default=WAITING, verbose_name='执行状态')
 

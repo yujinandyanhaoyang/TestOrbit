@@ -10,9 +10,11 @@ from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiFo
 from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
 from apiData.views.viewDef import parse_create_foreach_steps
 from utils.comDef import get_module_related, get_case_sort_list
-from utils.constant import API,  API_CASE, API_FOREACH,WAITING, INTERRUPT, USER_API
+from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.views import LimView
 from user.models import UserCfg
+from .caseStep import parse_api_case_steps,run_api_case_func,set_user_temp_params
+
 
 # 功能函数切分保存位置,变更到其他位置
 from .function.steps_def import save_step
@@ -163,6 +165,44 @@ class ApiCaseViews(LimView):
         request.data.clear()
         request.data.update({'name': api_case_name, 'is_deleted': True, 'updater': request.user.id})
         return self.patch(request, *args, **kwargs)
+
+# 运行整个测试用例组
+@api_view(['POST'])
+def run_api_cases(request):
+    """
+    执行Api测试用例
+    """
+    print("已进入run_api_cases函数，准备运行整个用例组")
+    user_id, envir = request.user.id, request.data['envir']
+    case_data = parse_api_case_steps(request.data['case'])
+    print(f'case_data:{case_data},env_id:{envir}')
+    
+    # 确保步骤失败不会中断后续步骤的执行
+    UserCfg.objects.update_or_create(
+        user_id=user_id, 
+        defaults={
+            'exec_status': RUNNING, 
+            'envir_id': envir,
+            'failed_stop': False  # 明确设置为False，防止步骤失败中断执行
+        }
+    )
+    
+    try:
+        print('准备使用run_api_case_func函数')
+        # 确保执行时传入failed_stop=False参数
+        res = run_api_case_func(
+            case_data, 
+            user_id, 
+            cfg_data={
+                'envir_id': request.data['envir'],
+                'failed_stop': False  # 显式设置为False，确保步骤失败不中断执行
+            }
+        )
+        UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
+        set_user_temp_params(res['params_source'], user_id)
+    except Exception as e:
+        return Response(data={'msg': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data={'msg': "执行完成！"})
 
 
 @api_view(['POST'])

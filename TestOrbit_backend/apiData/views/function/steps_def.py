@@ -68,8 +68,10 @@ def save_step(step, step_id, env_id, case_id):
     """
     print(f"已进入 save_step 函数，参数如下：")
     if step_id:
+        print(f"更新步骤，step_id: {step_id}")
         update_step(step, step_id, env_id)
     else:
+        print(f"创建新步骤")
         step_id = create_api(step,env_id,case_id)
     return step_id
 
@@ -78,7 +80,18 @@ def save_step(step, step_id, env_id, case_id):
 def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
     print("\n" + "-"*50)
     print("🔍 go_step函数开始执行")
-    
+
+    # 优先检查当前步骤已保存
+    step_id = step.get('step_id')
+    if step_id:
+        #检查这个step_id在数据库中是否存在
+        CaseStep = ApiCaseStep.objects.filter(id=step['step_id']).first()
+        if not CaseStep:
+            return {'status': FAILED}
+    else:
+        # 步骤未保存，返回错误状态
+        return {'status': FAILED}
+
     # 获取步骤类型
     s_type = step['type']
     
@@ -86,6 +99,7 @@ def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
     if actuator_obj.status in (INTERRUPT, FAILED_STOP):
         print("⚠️ 执行已被中断，跳过执行")
         return {'status': SKIP, 'data': '执行被中断！' if s_type not in (API_CASE, API_FOREACH) else None}
+    
     params = {'step': step, 'i': i, 'prefix_label': prefix_label, **extra_params}
     # 获取控制器数据
     controller_data = step.get('controller_data') or {}
@@ -124,10 +138,12 @@ def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
     # 执行步骤（包含重试逻辑）
     print("\n🚀 开始执行步骤...")
     for j in range(retry_times + 1):
-        print(f"🔄 第 {j+1}/{retry_times+1} 次尝试执行: {step.get('step_name', '未命名步骤')}")
+        # print(f"🔄 第 {j+1}/{retry_times+1} 次尝试执行: {step.get('step_name', '未命名步骤')}")
         try:
             # 通过反射调用对应类型的方法
             print(f"📡 调用 actuator_obj.{s_type} 方法")
+
+            # 使用getters动态获取方法,执行actuator_obj.{s_type} 方法获取返回结果
             method_result = getattr(actuator_obj, s_type)(**params)
             res = method_result or {'status': SUCCESS}
             
@@ -136,7 +152,6 @@ def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
                 print("🗄️ SQL执行结果中移除data字段")
                 res.pop('data', None)
                 
-            print(f"📊 执行结果状态: {res['status']}")
             
         except Exception as e:
             # 捕获执行异常
@@ -169,7 +184,11 @@ def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
         if actuator_obj.failed_stop:
             actuator_obj.status = FAILED_STOP
             print("⛔ 设置执行器状态为失败中断")
-    
+
+    # 保存运行结果
+    CaseStep.results = res.get('data', {})
+    CaseStep.save()
+
     print(f"🏁 go_step函数执行完成，返回状态: {res['status']}")
     print("-"*50 + "\n")
     return res

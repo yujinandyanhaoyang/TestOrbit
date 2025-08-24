@@ -16,6 +16,7 @@ from utils.report import get_api_case_step_count, report_case_count, init_step_c
 from utils.views import LimView
 from config.models import Environment
 from user.models import UserCfg
+import json
 
 # 功能函数切分保存位置,变更到其他位置
 from .function.steps_def import save_step
@@ -103,21 +104,43 @@ def search_api(request):
     return Response(data=case_data)
 
 
-@api_view(['POST'])
-def run_api_cases(request):
-    """
-    执行Api测试用例
-    """
-    user_id, envir = request.user.id, request.data['envir']
-    case_data = parse_api_case_steps(request.data['case'])
-    UserCfg.objects.update_or_create(user_id=user_id, defaults={'exec_status': RUNNING, 'envir_id': envir})
-    try:
-        res = run_api_case_func(case_data, user_id, cfg_data={'envir_id': request.data['envir']})
-        UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
-        set_user_temp_params(res['params_source'], user_id)
-    except Exception as e:
-        return Response(data={'msg': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(data={'msg': "执行完成！"})
+# 已搬运
+# @api_view(['POST'])
+# def run_api_cases(request):
+#     """
+#     执行Api测试用例
+#     """
+#     print("已进入run_api_cases函数，准备运行整个用例组")
+#     user_id, envir = request.user.id, request.data['envir']
+#     case_data = parse_api_case_steps(request.data['case'])
+#     print(f'case_data:{case_data},env_id:{envir}')
+    
+#     # 确保步骤失败不会中断后续步骤的执行
+#     UserCfg.objects.update_or_create(
+#         user_id=user_id, 
+#         defaults={
+#             'exec_status': RUNNING, 
+#             'envir_id': envir,
+#             'failed_stop': False  # 明确设置为False，防止步骤失败中断执行
+#         }
+#     )
+    
+#     try:
+#         print('准备使用run_api_case_func函数')
+#         # 确保执行时传入failed_stop=False参数
+#         res = run_api_case_func(
+#             case_data, 
+#             user_id, 
+#             cfg_data={
+#                 'envir_id': request.data['envir'],
+#                 'failed_stop': False  # 显式设置为False，确保步骤失败不中断执行
+#             }
+#         )
+#         UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
+#         set_user_temp_params(res['params_source'], user_id)
+#     except Exception as e:
+#         return Response(data={'msg': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+#     return Response(data={'msg': "执行完成！"})
 
 @api_view(['POST'])
 def run_api_case_step(request):
@@ -185,7 +208,7 @@ def test_api_data(request):
     
     # 解析请求数据
     req_data, user_id = request.data, request.user.id
-    
+
     # 创建执行器对象
     print("\n🛠️ 创建API用例执行器 (ApiCasesActuator)")
     actuator_obj = ApiCasesActuator(user_id)
@@ -200,12 +223,18 @@ def test_api_data(request):
     print(f"📤 传入参数: actuator_obj, req_data, i=0")
     res = go_step(actuator_obj, req_data, i=0)
 
-    # 打印结果
+        # 打印结果
     print("\n✅ 执行完成")
+
+    if res['status'] == FAILED:
+        return Response({'code': 400, 'message': '请先保存当前步骤！'})
+    else:
+        return Response(res.get('data', {}))
+
     # 原本被注释的代码
     # UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
     # set_user_temp_params(actuator_obj.params_source, request.user.id)
-    return Response(res.get('data', {}))
+    
 
 
 @api_view(['GET'])

@@ -18,6 +18,9 @@ urlpatterns = [
     # 获取用例组下的测试步骤用例
     # 保存用例组
 
+    path('run-api-cases', caseGroup.run_api_cases),
+    # 运行整个用例组
+
     # 复制用例
     path('copy-cases', caseGroup.copy_cases),
 
@@ -42,7 +45,7 @@ urlpatterns = [
     # 运行单步测试用例
 
     path('search-api', caseStep.search_api),
-    path('run-api-cases', caseStep.run_api_cases),
+
     path('run-api-case-step', caseStep.run_api_case_step),
 
 

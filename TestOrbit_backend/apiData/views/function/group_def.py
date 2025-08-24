@@ -1,29 +1,21 @@
-import copy
-import datetime
-import json
-import os
-import time
-from urllib.parse import urlencode
-
-import requests
-from django.db.models import Max, F
-from django.db.models.functions import JSONObject
-from openpyxl import load_workbook
-from requests import ReadTimeout
+from django.db import IntegrityError
+from django.db.models import Value, F, Q
+from django.db.models.functions import Concat
+from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from apiData.models import ApiCaseStep, ApiCase, ApiForeachStep
-from utils.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
-    close_db_con, json_dumps, JSONEncoder, MyThread, json_loads, format_parm_type_v
-from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
-    INTERRUPT, SKIP, API_CASE, API_FOREACH, TABLE_MODE, STRING, DIY_CFG, JSON_MODE, PY_TO_CONF_TYPE, CODE_MODE, \
-    OBJECT, FAILED_STOP, WAITING, PRO_CFG, FORM_MODE, EQUAL, API_VAR, NOT_EQUAL, \
-    CONTAIN, NOT_CONTAIN, TEXT_MODE, API, FORM_FILE_TYPE, FORM_TEXT_TYPE, API_SQL, RES_BODY
-from utils.diyException import DiyBaseException, NotFoundFileError
-from utils.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
+from apiData.models import ApiCase,  ApiCaseStep, ApiForeachStep
+from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
+from apiData.views.viewDef import  parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
+from utils.comDef import MyThread
+from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
+from utils.diyException import CaseCascaderLevelError
+from utils.paramsDef import set_user_temp_params
+from utils.report import get_api_case_step_count, report_case_count, init_step_count
+from utils.views import LimView
 from config.models import Environment
-from user.models import UserCfg, UserTempParams
-
+from user.models import UserCfg
 
 
 
@@ -63,3 +55,6 @@ def copy_cases_func(request, case_model, step_model, foreach_step_model=None):
     if foreach_steps_obj:
         ApiForeachStep.objects.bulk_create(foreach_steps_obj)
     return Response(data={'msg': "复制成功！"})
+
+
+
