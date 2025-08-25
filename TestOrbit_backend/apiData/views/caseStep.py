@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from apiData.models import ApiCase,  ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
-from apiData.views.viewDef import  parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
+from apiData.views.function.viewDef import  parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
 from utils.comDef import MyThread
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.diyException import CaseCascaderLevelError
@@ -200,36 +200,35 @@ def get_api_report(request):
         return Response(data={'msg': "该用例没有步骤！"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(data={'msg': "无该用例的测试报告！"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+"""
+调试API接口请求。运行单步骤用例
+"""
 @api_view(['POST'])
-def test_api_data(request):
-    """
-    调试API接口请求。运行单步骤用例
-    """
-    
+def test_api_data(request):    
     # 解析请求数据
     req_data, user_id = request.data, request.user.id
 
     # 创建执行器对象
-    print("\n🛠️ 创建API用例执行器 (ApiCasesActuator)")
     actuator_obj = ApiCasesActuator(user_id)
-    print(f"⚙️ 执行器初始化完成，环境ID: {actuator_obj.envir}")
-    
-    # 设置类型为API
-    req_data['type'] = API
-    print(f"📌 已设置步骤类型为API: {API}")
-    
+
+    # 获取步骤ID
+    step_id = req_data.get('step_id')
+    if step_id:
+        #检查这个step_id在数据库中是否存在
+        CaseStep = ApiCaseStep.objects.filter(id=step_id).first()
+        if not CaseStep:
+            return Response({'code': 400, 'message': '请先保存当前步骤！'})
+    else:
+        # 步骤未保存，返回错误状态
+        return Response({'code': 400, 'message': '请先保存当前步骤！'})
+
     # 调用go_step函数执行步骤
-    print("\n▶️ 开始调用go_step函数执行步骤...")
-    print(f"📤 传入参数: actuator_obj, req_data, i=0")
-    res = go_step(actuator_obj, req_data, i=0)
+    res = go_step(actuator_obj, step_id, i=0)
 
         # 打印结果
     print("\n✅ 执行完成")
-
-    if res['status'] == FAILED:
-        return Response({'code': 400, 'message': '请先保存当前步骤！'})
-    else:
-        return Response(res.get('data', {}))
+    return Response(res.get('data', {}))
 
     # 原本被注释的代码
     # UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)

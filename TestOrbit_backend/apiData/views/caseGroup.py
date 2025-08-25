@@ -8,7 +8,6 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
-from apiData.views.viewDef import parse_create_foreach_steps
 from utils.comDef import get_module_related, get_case_sort_list
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.views import LimView
@@ -18,7 +17,7 @@ from .caseStep import parse_api_case_steps,run_api_case_func,set_user_temp_param
 
 # 功能函数切分保存位置,变更到其他位置
 from .function.steps_def import save_step
-from .function.group_def import copy_cases_func
+from .function.group_def import copy_cases_func,parse_api_case_steps
 
 
 """
@@ -145,9 +144,9 @@ class ApiCaseViews(LimView):
             print(f'完整的错误堆栈:\n{error_info}')
             
             if '1062' in str(e):
-                return Response(data={'msg': '该用例名已存在！'}, status=status.HTTP_400_BAD_REQUEST)
-            return Response(data={'msg': f'保存出错：{str(e)}\n详细信息：{error_info}'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(data={'msg': '保存成功！', 'case_id': case_id})
+                return Response(data={'message': '该用例名已存在！'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data={'message': f'保存出错：{str(e)}\n详细信息：{error_info}'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data={'message': '保存成功！', 'case_id': case_id})
 
     #删除用例组方法
     def delete(self, request, *args, **kwargs):
@@ -155,10 +154,10 @@ class ApiCaseViews(LimView):
             return self.destroy(request, *args, **kwargs)
 
         if api_step := ApiCaseStep.objects.filter(quote_case_id=request.query_params['id']).first():
-            return Response({'msg': f'该用例已被【{api_step.case.name}】用例引用，无法删除！'},
+            return Response({'message': f'该用例已被【{api_step.case.name}】用例引用，无法删除！'},
                             status=status.HTTP_400_BAD_REQUEST)
         elif foreach_step := ApiForeachStep.objects.filter(quote_case_id=request.query_params['id']).first():
-            return Response({'msg': f'该用例已被【{foreach_step.step.case.name}】用例的循环控制步骤引用，无法删除！'},
+            return Response({'message': f'该用例已被【{foreach_step.step.case.name}】用例的循环控制步骤引用，无法删除！'},
                             status=status.HTTP_400_BAD_REQUEST)
 
         api_case_name = f"{self.get_object().name}{str(timezone.now().timestamp())}"
@@ -175,7 +174,7 @@ def run_api_cases(request):
     print("已进入run_api_cases函数，准备运行整个用例组")
     user_id, envir = request.user.id, request.data['envir']
     case_data = parse_api_case_steps(request.data['case'])
-    print(f'case_data:{case_data},env_id:{envir}')
+    # print(f'case_data:{case_data},env_id:{envir}')
     
     # 确保步骤失败不会中断后续步骤的执行
     UserCfg.objects.update_or_create(
@@ -199,10 +198,10 @@ def run_api_cases(request):
             }
         )
         UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
-        set_user_temp_params(res['params_source'], user_id)
+        # set_user_temp_params(res['params_source'], user_id)
     except Exception as e:
-        return Response(data={'msg': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(data={'msg': "执行完成！"})
+        return Response(data={'message': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'message': "执行完成！"})
 
 
 @api_view(['POST'])
@@ -211,7 +210,7 @@ def stop_casing(request):
     中断测试
     """
     UserCfg.objects.filter(user_id=request.user.id).update(exec_status=INTERRUPT)
-    return Response({'msg': '中断成功，请等待几秒后刷新列表查看！'})
+    return Response({'message': '中断成功，请等待几秒后刷新列表查看！'})
 
 
 @api_view(['POST'])
@@ -225,7 +224,7 @@ def copy_step_to_other_case(request):
         case_id=params['to_case'], status=WAITING, api_id=params.get('params', {}).get('api_id'),
         enabled=True, controller_data=params.get('controller_data', {}), params=params['params'])
     ApiCase.objects.filter(id=params['to_case']).update(updater_id=request.user.id, updated=datetime.datetime.now())
-    return Response({'msg': '复制成功！'})
+    return Response({'message': '复制成功！'})
 
 
 @api_view(['POST'])
@@ -257,8 +256,8 @@ def merge_cases(request):
         ApiCaseStep.objects.bulk_create(step_objs)
     except IntegrityError as e:
         print(str(e))
-        return Response(data={'msg': '该测试用例已存在！'}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(data={'msg': "合并成功！"})
+        return Response(data={'message': '该测试用例已存在！'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data={'message': "合并成功！"})
 
 
 
@@ -279,7 +278,7 @@ def set_case_position(request):
     for i, case in enumerate(request.data['cases']):
         case_objs.append(ApiCase(position=i, id=case['id']))
     ApiCase.objects.bulk_update(case_objs, fields=('position',))
-    return Response({'msg': '修改成功'})
+    return Response({'message': '修改成功'})
 
 
 @api_view(['DELETE'])
@@ -288,7 +287,7 @@ def clean_deleted_cases(request):
     清空回收站
     """
     ApiCase.objects.filter(is_deleted=True).delete()
-    return Response({'msg': '清空成功！'})
+    return Response({'message': '清空成功！'})
 
 
 @api_view(['DELETE'])
@@ -297,4 +296,4 @@ def delete_selected_cases(request):
     删除选中的测试用例
     """
     ApiCase.objects.filter(id__in=request.data['ids']).update(is_deleted=True)
-    return Response({'msg': '删除成功！'})
+    return Response({'message': '删除成功！'})

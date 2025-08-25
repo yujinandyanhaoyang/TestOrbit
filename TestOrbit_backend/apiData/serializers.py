@@ -15,7 +15,7 @@ apiData/serializers.py - API 数据序列化器模块
 
 from rest_framework import serializers
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
-from apiData.views.viewDef import set_foreach_tree
+from apiData.views.function.viewDef import set_foreach_tree
 from utils.comSerializers import ComEditUserNameSerializer
 from utils.constant import API_FOREACH, API
 

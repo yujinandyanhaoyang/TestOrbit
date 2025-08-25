@@ -77,29 +77,37 @@ def save_step(step, step_id, env_id, case_id):
 
 
 # 步骤执行函数,调用ApiCasesActuator.api方法运行具体用例
-def go_step(actuator_obj, step, i=0, prefix_label='', **extra_params):
+def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
     print("\n" + "-"*50)
     print("🔍 go_step函数开始执行")
 
+    # print(f'当前步骤: {step_params}')
     # 优先检查当前步骤已保存
-    step_id = step.get('step_id')
-    if step_id:
-        #检查这个step_id在数据库中是否存在
-        CaseStep = ApiCaseStep.objects.filter(id=step['step_id']).first()
-        if not CaseStep:
-            return {'status': FAILED}
-    else:
-        # 步骤未保存，返回错误状态
-        return {'status': FAILED}
+    # step_id = step_params.get('step_id')
+    # # print(f'当前步骤ID: {step_id}')
+    # if step_id:
+    #     #检查这个step_id在数据库中是否存在
+    #     CaseStep = ApiCaseStep.objects.filter(id=step_params['step_id']).first()
+    #     if not CaseStep:
+    #         return {'status': FAILED}
+    # else:
+    #     # 步骤未保存，返回错误状态
+    #     return {'status': FAILED}
 
+    CaseStep = ApiCaseStep.objects.filter(id=step_id).first()
+    # 初始化step
+    step = {}
+    step['params'] = CaseStep.params if CaseStep else {}
+    step['controller_data'] = CaseStep.controller_data if CaseStep else {}
+    # print(f'当前步骤step_params: {step["params"]}')
     # 获取步骤类型
-    s_type = step['type']
-    
+    s_type = CaseStep.type if CaseStep else None
+
     # 检查是否需要中断执行
     if actuator_obj.status in (INTERRUPT, FAILED_STOP):
         print("⚠️ 执行已被中断，跳过执行")
         return {'status': SKIP, 'data': '执行被中断！' if s_type not in (API_CASE, API_FOREACH) else None}
-    
+
     params = {'step': step, 'i': i, 'prefix_label': prefix_label, **extra_params}
     # 获取控制器数据
     controller_data = step.get('controller_data') or {}

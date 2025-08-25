@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from apiData.models import ApiModule, ApiCaseStep, ApiCase
-from apiData.views.viewDef import ApiCasesActuator
+from apiData.views.function.viewDef import ApiCasesActuator
 from utils.comDef import db_connect, get_proj_envir_db_data, close_db_con
 from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_SQL, VAR_PARAM
 from utils.paramsDef import set_user_temp_params

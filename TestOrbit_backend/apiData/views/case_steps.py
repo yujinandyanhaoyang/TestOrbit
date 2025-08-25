@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from apiData.models import ApiCase, ApiCaseStep, ApiForeachStep
 from utils.constant import API, API_CASE, API_FOREACH, USER_API
-from apiData.views.viewDef import parse_create_foreach_steps
+from apiData.views.function.viewDef import parse_create_foreach_steps
 
 @api_view(['POST'])
 def add_steps(request):
@@ -30,7 +30,7 @@ def add_steps(request):
     
     if not case_id or not steps:
         return Response({
-            'msg': '缺少必要参数'
+            'message': '缺少必要参数'
         }, status=status.HTTP_400_BAD_REQUEST)
         
     try:
@@ -134,14 +134,14 @@ def add_steps(request):
             )
             
             return Response({
-                'msg': '添加步骤成功',
+                'message': '添加步骤成功',
                 'step_count': len(created_steps)
             })
             
     except Exception as e:
         print(f'添加步骤失败: {str(e)}')
         return Response({
-            'msg': f'添加步骤失败: {str(e)}'
+            'message': f'添加步骤失败: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -150,7 +150,7 @@ def update_step(request):
     step_id = request.data.get('step_id')
     if not step_id:
         return Response({
-            'msg': '缺少step_id参数'
+            'message': '缺少step_id参数'
         }, status=status.HTTP_400_BAD_REQUEST)
         
     try:
@@ -174,16 +174,16 @@ def update_step(request):
             updated=datetime.datetime.now()
         )
         
-        return Response({'msg': '更新成功'})
+        return Response({'message': '更新成功'})
         
     except ApiCaseStep.DoesNotExist:
         return Response({
-            'msg': '步骤不存在'
+            'message': '步骤不存在'
         }, status=status.HTTP_404_NOT_FOUND)
         
     except Exception as e:
         return Response({
-            'msg': f'更新失败: {str(e)}'
+            'message': f'更新失败: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -192,7 +192,7 @@ def delete_step(request):
     step_id = request.data.get('step_id')
     if not step_id:
         return Response({
-            'msg': '缺少step_id参数'
+            'message': '缺少step_id参数'
         }, status=status.HTTP_400_BAD_REQUEST)
         
     try:
@@ -231,16 +231,16 @@ def delete_step(request):
                 updated=datetime.datetime.now()
             )
             
-        return Response({'msg': '删除成功'})
+        return Response({'message': '删除成功'})
         
     except ApiCaseStep.DoesNotExist:
         return Response({
-            'msg': '步骤不存在'
+            'message': '步骤不存在'
         }, status=status.HTTP_404_NOT_FOUND)
         
     except Exception as e:
         return Response({
-            'msg': f'删除失败: {str(e)}'
+            'message': f'删除失败: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -251,7 +251,7 @@ def reorder_steps(request):
     
     if not case_id or not step_orders:
         return Response({
-            'msg': '缺少必要参数'
+            'message': '缺少必要参数'
         }, status=status.HTTP_400_BAD_REQUEST)
         
     try:
@@ -262,7 +262,7 @@ def reorder_steps(request):
         )
         if len(steps) != len(step_orders):
             return Response({
-                'msg': '部分步骤不存在或不属于该用例'
+                'message': '部分步骤不存在或不属于该用例'
             }, status=status.HTTP_400_BAD_REQUEST)
             
         # 更新步骤顺序
@@ -279,9 +279,9 @@ def reorder_steps(request):
             updated=datetime.datetime.now()
         )
         
-        return Response({'msg': '更新顺序成功'})
+        return Response({'message': '更新顺序成功'})
         
     except Exception as e:
         return Response({
-            'msg': f'更新顺序失败: {str(e)}'
+            'message': f'更新顺序失败: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
