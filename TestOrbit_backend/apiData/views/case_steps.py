@@ -10,6 +10,7 @@ apiData/views/case_steps.py - 用例步骤管理视图
 
 import datetime
 from django.db import transaction
+from django.db.models import Max
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -202,7 +203,7 @@ def delete_step(request):
         with transaction.atomic():
             # API步骤数据会随步骤一起删除，不需要额外操作
             if step.type == API:
-                pass  # 数据已经整合到ApiCaseStep，删除step时会自动删除数据
+                pass  # 删除step时会自动删除数据
                 
             # 如果是foreach步骤，删除子步骤
             elif step.type == API_FOREACH:
@@ -255,29 +256,45 @@ def reorder_steps(request):
         }, status=status.HTTP_400_BAD_REQUEST)
         
     try:
-        # 验证步骤是否都属于同一用例
-        steps = ApiCaseStep.objects.filter(
-            case_id=case_id,
-            id__in=[so['step_id'] for so in step_orders]
-        )
-        if len(steps) != len(step_orders):
-            return Response({
-                'message': '部分步骤不存在或不属于该用例'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            # 验证步骤是否都属于同一用例
+            steps = ApiCaseStep.objects.filter(
+                case_id=case_id,
+                id__in=[so['step_id'] for so in step_orders]
+            ).select_for_update()  # 锁定行以防止并发修改
             
-        # 更新步骤顺序
-        step_dict = {s.id: s for s in steps}
-        for order_info in step_orders:
-            step = step_dict[order_info['step_id']]
-            step.step_order = order_info['new_order']
+            if len(steps) != len(step_orders):
+                return Response({
+                    'message': '部分步骤不存在或不属于该用例'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-        ApiCaseStep.objects.bulk_update(steps, ['step_order'])
-        
-        # 更新用例更新时间
-        ApiCase.objects.filter(id=case_id).update(
-            updater_id=request.user.id,
-            updated=datetime.datetime.now()
-        )
+            # 首先，找到一个安全的临时顺序值范围
+            # 获取当前最大步骤顺序值
+            max_order = ApiCaseStep.objects.filter(case_id=case_id).aggregate(Max('step_order'))['step_order__max'] or 0
+            temp_start = max_order + 1000  # 使用一个足够大的偏移量，确保不与现有顺序冲突
+            
+            step_dict = {s.id: s for s in steps}
+            for i, order_info in enumerate(step_orders):
+                step = step_dict[order_info['step_id']]
+                # 使用临时值，确保不会与其他顺序冲突
+                step.step_order = temp_start + i
+            
+            # 先应用临时值
+            ApiCaseStep.objects.bulk_update(steps, ['step_order'])
+            
+            # 然后应用最终值
+            for order_info in step_orders:
+                step = step_dict[order_info['step_id']]
+                step.step_order = order_info['new_order']
+            
+            # 更新最终的步骤顺序
+            ApiCaseStep.objects.bulk_update(steps, ['step_order'])
+            
+            # 更新用例更新时间
+            ApiCase.objects.filter(id=case_id).update(
+                updater_id=request.user.id,
+                updated=datetime.datetime.now()
+            )
         
         return Response({'message': '更新顺序成功'})
         

@@ -81,19 +81,6 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
     print("\n" + "-"*50)
     print("🔍 go_step函数开始执行")
 
-    # print(f'当前步骤: {step_params}')
-    # 优先检查当前步骤已保存
-    # step_id = step_params.get('step_id')
-    # # print(f'当前步骤ID: {step_id}')
-    # if step_id:
-    #     #检查这个step_id在数据库中是否存在
-    #     CaseStep = ApiCaseStep.objects.filter(id=step_params['step_id']).first()
-    #     if not CaseStep:
-    #         return {'status': FAILED}
-    # else:
-    #     # 步骤未保存，返回错误状态
-    #     return {'status': FAILED}
-
     CaseStep = ApiCaseStep.objects.filter(id=step_id).first()
     # 初始化step
     step = {}
@@ -194,6 +181,7 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
             print("⛔ 设置执行器状态为失败中断")
 
     # 保存运行结果
+    print("💾 保存步骤执行结果到ApiCaseStep.results...")
     CaseStep.results = res.get('data', {})
     CaseStep.save()
 

@@ -42,11 +42,13 @@ class ApiCase(ComTimeModel, UserEditModel):
     is_deleted = models.BooleanField(default=0, verbose_name="是否删除")
     latest_run_time = models.DateTimeField(null=True, verbose_name='最后一次执行时间')
     position = models.IntegerField(default=0, verbose_name='排序优先级')
+    env = models.ForeignKey(to=Environment, null=True, blank=True, on_delete=models.PROTECT, verbose_name="引用的环境")
 
     class Meta:
         verbose_name = '接口用例'
         db_table = 'api_case'
         unique_together = ('name', 'module')
+    
 
 
 
@@ -76,11 +78,15 @@ class ApiCaseStep(ComTimeModel, models.Model):
     # 结果和配置
     results = models.JSONField(null=True, verbose_name="步骤执行结果")    
     timeout = models.IntegerField(null=True, verbose_name="超时时间")
-    source = models.CharField(max_length=50, null=True, verbose_name="API来源")      
+    source = models.CharField(max_length=50, null=True, verbose_name="API来源") 
+
 
     # 关联
     case = models.ForeignKey(to=ApiCase, related_name='case_step', on_delete=models.CASCADE, verbose_name="所属测试用例")
     env = models.ForeignKey(to=Environment, null=True, blank=True, on_delete=models.PROTECT, verbose_name="环境变量")
+    # 引用其他用例的外键
+    quote_case = models.ForeignKey(to=ApiCase, null=True, blank=True, related_name='quoted_by_steps', 
+                                  on_delete=models.PROTECT, verbose_name="引用的用例")
 
     def get_step_params(self):
         """
@@ -128,7 +134,6 @@ class ApiCaseStep(ComTimeModel, models.Model):
         verbose_name = 'api用例的步骤'
         db_table = 'api_case_step'
         unique_together = ('case', 'step_order')
-        db_table = 'api_case_step'
 
 
 class ApiForeachStep(models.Model):

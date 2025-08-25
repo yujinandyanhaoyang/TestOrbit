@@ -9,15 +9,16 @@ from rest_framework.response import Response
 from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
 from utils.comDef import get_module_related, get_case_sort_list
-from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
+from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING, WAITING, INTERRUPT
 from utils.views import LimView
 from user.models import UserCfg
 from .caseStep import parse_api_case_steps,run_api_case_func,set_user_temp_params
-
+from .function.viewDef import parse_create_foreach_steps
 
 # 功能函数切分保存位置,变更到其他位置
 from .function.steps_def import save_step
 from .function.group_def import copy_cases_func,parse_api_case_steps
+from .function.group_batch import handleGroupbatch, BatchExecutionException
 
 
 """
@@ -73,7 +74,7 @@ class ApiCaseViews(LimView):
         env_id = req_data.get('env_id')
         steps = req_data.get('steps')
         for_next_id =  None
-        save_case_data = {field: req_data.get(field) for field in ('name', 'module_id', 'remark')
+        save_case_data = {field: req_data.get(field) for field in ('name',  'remark','module_id','env_id')
                           if field in req_data}
         try:
             with transaction.atomic():
@@ -174,7 +175,6 @@ def run_api_cases(request):
     print("已进入run_api_cases函数，准备运行整个用例组")
     user_id, envir = request.user.id, request.data['envir']
     case_data = parse_api_case_steps(request.data['case'])
-    # print(f'case_data:{case_data},env_id:{envir}')
     
     # 确保步骤失败不会中断后续步骤的执行
     UserCfg.objects.update_or_create(
@@ -202,6 +202,34 @@ def run_api_cases(request):
     except Exception as e:
         return Response(data={'message': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
     return Response({'message': "执行完成！"})
+
+
+@api_view(['POST'])
+def batch_run_api_cases(request):
+    """
+    批量执行多个Api测试用例，支持并行或串行执行
+    """
+    batch_params = request.data
+    user_id = request.user.id
+    print(f'batch_run_api_cases函数，参数: {batch_params}')
+    
+    try:
+        # 调用处理函数，获取结果数据
+        result_data = handleGroupbatch(batch_params, user_id)
+        
+        # 正常情况下，直接返回结果
+        return Response(result_data)
+        
+    except BatchExecutionException as e:
+        # 处理自定义异常
+        return Response(data={'message': e.message}, status=e.status_code)
+    except Exception as e:
+        # 处理其他未预期的异常
+        return Response(
+            data={'message': f"批量执行异常：{str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 
 
 @api_view(['POST'])
@@ -297,3 +325,37 @@ def delete_selected_cases(request):
     """
     ApiCase.objects.filter(id__in=request.data['ids']).update(is_deleted=True)
     return Response({'message': '删除成功！'})
+
+
+@api_view(['POST'])
+def restore_deleted_cases(request):
+    """
+    恢复被标记为删除的测试用例
+    """
+    print(f'恢复被标记为删除的测试用例: {request.data["ids"]}')
+    
+    # 首先检查这些ID是否存在
+    all_matching_cases = ApiCase.objects.filter(id__in=request.data['ids']) 
+    # 然后筛选出已删除的用例
+    cases = all_matching_cases.filter(is_deleted=True)
+    # 检查名称冲突
+    name_conflicts = []
+    for case in cases:
+        # 检查是否存在同名非删除用例
+        if ApiCase.objects.filter(name=case.name, module_id=case.module_id, is_deleted=False).exists():
+            name_conflicts.append(case.name)
+    
+    if name_conflicts:
+        return Response({
+            'message': f'以下用例名称已存在，无法恢复: {", ".join(name_conflicts)}', 
+            'conflicts': name_conflicts
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # 先获取匹配的记录数量
+    count = cases.count()
+    
+    # 执行恢复
+    cases.update(is_deleted=False)
+    
+    # 使用之前获取的数量
+    return Response({'message': f'成功恢复 {count} 个用例！'})

@@ -1,5 +1,5 @@
 from django.db import IntegrityError
-from django.db.models import Value, F, Q
+from django.db.models import Value, F, Q, Max
 from django.db.models.functions import Concat
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -235,12 +235,12 @@ def test_api_data(request):
     # set_user_temp_params(actuator_obj.params_source, request.user.id)
     
 
-
+"""
+查询使用了指定接口的用例
+"""
 @api_view(['GET'])
 def search_case_by_api(request):
-    """
-    查询使用了指定接口的用例
-    """
+
     if 'api_id' in request.query_params:
         api_id = int(request.query_params['api_id'])
         case_ids = list(ApiCaseStep.objects.filter(api_id=api_id).values_list('case_id', flat=True))
@@ -251,3 +251,41 @@ def search_case_by_api(request):
         ser_data = serializer.data
         return Response({'data': ser_data, 'total': len(ser_data)})
     return Response({'data': {}})
+
+"""
+复制步骤
+"""
+@api_view(['POST'])
+def copy_step(request):
+    """
+    复制步骤
+    """
+    step_id = request.data.get('step_id')
+    if not step_id:
+        return Response({'code': 400, 'message': '缺少步骤ID！'})
+
+    # 查询原步骤
+    original_step = ApiCaseStep.objects.filter(id=step_id).first()
+    if not original_step:
+        return Response({'code': 404, 'message': '步骤未找到！'})
+
+    # 更新step_name/step_order
+    new_step_name = f"{original_step.step_name}_COPY"
+    # 获取当前最大步骤顺序
+    max_step_order = ApiCaseStep.objects.filter(case_id=original_step.case_id).aggregate(Max('step_order'))['step_order__max']
+
+    # 复制步骤
+    new_step = ApiCaseStep.objects.create(
+        type=original_step.type,
+        enabled=original_step.enabled,
+        step_name=new_step_name,
+        step_order=max_step_order + 1 if max_step_order is not None else 1,
+        params=original_step.params,
+        results=original_step.results,
+        timeout=original_step.timeout,
+        source=original_step.source,
+        env_id=original_step.env_id,
+        case_id=original_step.case_id
+    )
+
+    return Response({'code': 200, 'message': '步骤复制成功！', 'data': {'step_id': new_step.id}})
