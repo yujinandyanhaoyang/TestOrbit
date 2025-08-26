@@ -2,12 +2,30 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 from utils.constant import VAR_PARAM, WAITING
-from project.models import ProjectParamType
+from project.models import ProjectParamType, Project
 from config.models import Environment
+
+
+class UserProjectRelation(models.Model):
+    """用户与项目的关联表"""
+    user = models.ForeignKey('ExpendUser', on_delete=models.CASCADE, verbose_name="用户")
+    project = models.ForeignKey('project.Project', on_delete=models.CASCADE, verbose_name="项目")
+    
+    class Meta:
+        verbose_name = '用户项目关系'
+        db_table = 'user_project_relation'
+        unique_together = ('user', 'project')  # 确保用户和项目的组合是唯一的
 
 
 class ExpendUser(AbstractUser):
     phone = models.CharField(verbose_name="手机号", default='', max_length=255)
+    projects = models.ManyToManyField(
+        to=Project, 
+        through=UserProjectRelation,
+        blank=True, 
+        verbose_name="关联项目", 
+        related_name="users"
+    )
 
     class Meta:
         verbose_name = '用户'

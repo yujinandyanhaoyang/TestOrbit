@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.db.models import Value, F
-from django.db.models.functions import Concat
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -13,7 +13,6 @@ from utils.constant import VAR_PARAM, HEADER_PARAM, HOST_PARAM
 from utils.views import View
 from user.models import ExpendUser, UserCfg, UserTempParams
 from user.serializers import UserSerializer
-
 
 @api_view(['POST'])
 @permission_classes((AllowAny,))
@@ -29,6 +28,9 @@ def login(request):
         # 创建新的token
         token = Token.objects.create(user=user)
         user_info = {'username': user.username, 'phone': user.phone}
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        
         return Response(data={'msg': '登录成功！', 'token': token.key, 'user_info': user_info})  # 返回登录信息及token
     return Response(data={'msg': '密码错误或该账号被禁用！'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -107,3 +109,52 @@ def change_password(request):
     pwd = make_password(request.data['password'])
     ExpendUser.objects.filter(id=request.user.id).update(password=pwd)
     return Response(data={'msg': '修改成功'})
+
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))
+def assign_user_projects(request):
+    """
+    超级管理员分配用户到项目组
+    请求参数:
+    - user_id: 用户ID
+    - project_ids: 项目ID列表 [1, 2, 3]
+    """
+    try:        
+        # 只有超级管理员可以使用此功能
+        if not request.user.is_superuser:
+            return Response({'msg': '权限不足，只有超级管理员可以分配用户项目'}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        user_id = request.data.get('user_id')
+        project_ids = request.data.get('project_ids', [])
+        
+        # 验证必要参数
+        if user_id is None:
+            return Response({'msg': '缺少必要参数: user_id'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        # 获取用户对象
+        try:
+            user = ExpendUser.objects.get(id=user_id)
+        except ExpendUser.DoesNotExist:
+            return Response({'msg': f'用户ID {user_id} 不存在'}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        # 直接设置用户的项目（替换现有关联）
+        user.projects.set(project_ids)
+        
+        # 获取更新后的项目列表
+        current_projects = list(user.projects.values('id', 'name'))
+        
+        return Response({
+            'msg': f'成功为用户 {user.username} 分配项目', 
+            'user_id': user_id,
+            'username': user.username,
+            'current_projects': current_projects,
+            'project_count': len(current_projects)
+        })
+        
+    except Exception as e:
+        return Response({'msg': f'操作失败: {str(e)}'}, 
+                       status=status.HTTP_500_INTERNAL_SERVER_ERROR)
