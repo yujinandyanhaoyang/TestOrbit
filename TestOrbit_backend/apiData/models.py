@@ -1,7 +1,7 @@
 from django.db import models
 from utils.comDef import get_next_id
 from utils.comModel import ComTimeModel, ComModuleModel
-from utils.constant import WAITING, USER_API
+from utils.constant import WAITING
 from project.models import Project
 from user.models import UserEditModel
 from config.models import Environment
@@ -158,3 +158,82 @@ class ApiForeachStep(models.Model):
         db_table = 'api_foreach_step'
         # 复合主键：(step, step_order) 确保循环步骤的唯一性
         unique_together = ('step', 'step_order')
+
+
+class ScheduledTask(ComTimeModel, UserEditModel):
+    """
+    定时任务模型
+    用于存储和管理API用例的定时执行任务
+    """
+    
+    # 任务状态选择
+    TASK_STATUS_CHOICES = [
+        ('pending', '待执行'),
+        ('running', '执行中'),
+        ('completed', '已完成'),
+        ('failed', '执行失败'),
+    ]
+    
+    # 执行模式选择
+    EXECUTION_MODE_CHOICES = [
+        (0, '串行'),
+        (1, '并行'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    task_name = models.CharField(max_length=255, verbose_name="任务名称", default="定时测试任务")
+    
+    # 关联的测试用例
+    case_ids = models.JSONField(verbose_name="测试用例ID列表")
+    
+    # 执行模式：0串行，1并行
+    parallel = models.IntegerField(choices=EXECUTION_MODE_CHOICES, default=0, verbose_name="执行模式")
+    
+    # 负责人列表
+    owner_ids = models.JSONField(verbose_name="负责人ID列表")
+    
+    # 预定执行时间
+    scheduled_time = models.DateTimeField(verbose_name="预定执行时间")
+    
+    # 实际执行时间
+    actual_start_time = models.DateTimeField(null=True, blank=True, verbose_name="实际开始时间")
+    actual_end_time = models.DateTimeField(null=True, blank=True, verbose_name="实际结束时间")
+    
+    # 任务状态
+    status = models.CharField(max_length=20, choices=TASK_STATUS_CHOICES, default='pending', verbose_name="任务状态")
+    
+    # 执行结果
+    execution_result = models.JSONField(null=True, blank=True, verbose_name="执行结果")
+    
+    # 错误信息
+    error_message = models.TextField(null=True, blank=True, verbose_name="错误信息")
+    
+    # 执行次数统计
+    execution_count = models.IntegerField(default=0, verbose_name="执行次数")
+    
+    # 是否重复执行（为将来的周期性任务预留）
+    is_recurring = models.BooleanField(default=False, verbose_name="是否重复执行")
+    
+    # 重复执行的间隔（分钟）
+    recurring_interval = models.IntegerField(null=True, blank=True, verbose_name="重复间隔(分钟)")
+    
+    class Meta:
+        verbose_name = '定时任务'
+        db_table = 'api_scheduled_task'
+        ordering = ['-scheduled_time']
+    
+    def __str__(self):
+        return f"{self.task_name} - {self.scheduled_time}"
+    
+    @property
+    def is_expired(self):
+        """检查任务是否已过期"""
+        from django.utils import timezone
+        return timezone.now() > self.scheduled_time and self.status == 'pending'
+    
+    @property
+    def execution_duration(self):
+        """计算执行时长（秒）"""
+        if self.actual_start_time and self.actual_end_time:
+            return (self.actual_end_time - self.actual_start_time).total_seconds()
+        return None

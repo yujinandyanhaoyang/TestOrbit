@@ -5,7 +5,7 @@ from rest_framework.permissions import SAFE_METHODS
 from TestOrbit.settings import AUTHORIZE_API, NO_AUTHORIZE_API
 
 
-class LimTokenAuthentication(TokenAuthentication):
+class TokenAuthentication(TokenAuthentication):
 
     def authenticate(self, request):
         """

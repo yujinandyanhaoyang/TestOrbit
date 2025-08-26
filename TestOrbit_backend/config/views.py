@@ -14,14 +14,14 @@ from apiData.views.function.viewDef import ApiCasesActuator
 from utils.comDef import db_connect, get_proj_envir_db_data, close_db_con
 from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_SQL, VAR_PARAM
 from utils.paramsDef import set_user_temp_params
-from utils.views import LimView
+from utils.views import View
 from project.models import Project
 from config.models import Environment  # 移除 ProjectEnvirData 导入
 from config.serializers import EnvironmentSerializer
 from user.models import UserTempParams
 
 
-class EnvironmentView(LimView):
+class EnvironmentView(View):
     """
     环境配置视图类
     处理环境配置的创建、列表、修改和删除

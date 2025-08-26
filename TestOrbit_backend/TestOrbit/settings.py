@@ -62,7 +62,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders',
+    # 'corsheaders',  # 暂时注释掉以避免模块导入错误
     'django_filters',
     'rest_framework',
     'rest_framework.authtoken'
@@ -72,16 +72,16 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # 跨域设置
+    # 'corsheaders.middleware.CorsMiddleware',  # 暂时注释掉跨域设置
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'TestOrbit.limMiddleware.ResponseMiddleWare',
+    'TestOrbit.Middleware.ResponseMiddleWare',
 ]
 
 ROOT_URLCONF = 'TestOrbit.urls'
-AUTH_USER_MODEL = 'user.LimUser'  # 指定用户模型
+AUTH_USER_MODEL = 'user.ExpendUser'  # 指定扩展的用户模型（注意：使用小写引用）
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -102,35 +102,27 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'TestOrbit.limAuthentication.LimTokenAuthentication',
+        'TestOrbit.Authentication.TokenAuthentication',
     ],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend', 'rest_framework.filters.OrderingFilter',
-        'TestOrbit.limFilterBackends.QueryOnlyFields', 'TestOrbit.limFilterBackends.DiySearchFilter',
+        'TestOrbit.FilterBackends.QueryOnlyFields', 'TestOrbit.FilterBackends.DiySearchFilter',
         'rest_framework.filters.SearchFilter'],
-    'DEFAULT_PAGINATION_CLASS': 'TestOrbit.limPagination.StandardPageNumberPagination',
-    'EXCEPTION_HANDLER': 'TestOrbit.limExceptionHandler.response_exception_handler'
+    'DEFAULT_PAGINATION_CLASS': 'TestOrbit.Pagination.StandardPageNumberPagination',
+    'EXCEPTION_HANDLER': 'TestOrbit.ExceptionHandler.response_exception_handler'
 }
 WSGI_APPLICATION = 'TestOrbit.wsgi.application'
 
-AUTHORIZE_API = ('/user/user-cfg-params',)
+AUTHORIZE_API = (
+    '/user/user-cfg-params',
+    '/api-data/scheduled-tasks',
+    '/api-data/schedule-api-cases',
+    '/api-data/cancel-scheduled-task',
+)
 NO_AUTHORIZE_API = ('/user/login',)
 
 FILE_DIR_HOST = 'http://127.0.0.1:8003/'  # 用于获取上传的文件主机地址，部署时需要修改
-##原始数据库配置
 # 数据库配置
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'HOST': "127.0.0.1",
-#         'NAME': "lim-db",
-#         'USER': "root",
-#         'PASSWORD': "123456",
-#         'PORT': "3306",
-#         'OPTIONS': {'init_command': 'SET default_storage_engine=INNODB'}
-
-#     }
-# }
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',

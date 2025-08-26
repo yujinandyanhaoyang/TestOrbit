@@ -5,14 +5,14 @@ from apiData.models import ApiCaseModule, ApiCase, ApiModule
 from apiData.serializers import CaseModuleSerializer, ApiModuleSerializer
 from utils.comDef import get_next_id
 from utils.treeDef import create_tree, create_cascader_tree
-from utils.views import LimView
+from utils.views import View
 
 """
 存储模块树相关方法
 """
 
 # 展示模块
-class CaseModuleViews(LimView):
+class CaseModuleViews(View):
     queryset = ApiCaseModule.objects.order_by('created')
     serializer_class = CaseModuleSerializer
     ordering_fields = ('created',)
@@ -25,7 +25,7 @@ class CaseModuleViews(LimView):
         return self.delete_logically_module(request, ApiCase, *args, **kwargs)
 
 # 辅助模块
-class ApiModuleViews(LimView):
+class ApiModuleViews(View):
     queryset = ApiModule.objects.order_by('created')
     serializer_class = ApiModuleSerializer
     ordering_fields = ('created',)

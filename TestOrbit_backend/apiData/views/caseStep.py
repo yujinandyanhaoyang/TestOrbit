@@ -13,7 +13,7 @@ from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE,
 from utils.diyException import CaseCascaderLevelError
 from utils.paramsDef import set_user_temp_params
 from utils.report import get_api_case_step_count, report_case_count, init_step_count
-from utils.views import LimView
+from utils.views import View
 from config.models import Environment
 from user.models import UserCfg
 import json
@@ -26,7 +26,7 @@ from .function.steps_def import save_step
 用例步骤相关操作
 """
 
-class ApiViews(LimView):
+class ApiViews(View):
     queryset = ApiCaseStep.objects.all().select_related('case')
     serializer_class = ApiDataListSerializer
     filterset_fields = ('case_id', 'name', 'status', 'method')

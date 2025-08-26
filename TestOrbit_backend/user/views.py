@@ -10,8 +10,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from utils.constant import VAR_PARAM, HEADER_PARAM, HOST_PARAM
-from utils.views import LimView
-from user.models import LimUser, UserCfg, UserTempParams
+from utils.views import View
+from user.models import ExpendUser, UserCfg, UserTempParams
 from user.serializers import UserSerializer
 
 
@@ -24,17 +24,18 @@ def login(request):
     # 验证用户账号密码的内置方法
     user = authenticate(username=request.data['username'], password=request.data['password'])
     if user:
-        token = Token.objects.filter(user_id=user.id).first()
-        if not token:
-            token = Token.objects.create(user=user)  # 创建新的token
-        user_info = {'username': user.username, 'name': user.real_name}
+        # 删除旧的token（如果存在）
+        Token.objects.filter(user_id=user.id).delete()
+        # 创建新的token
+        token = Token.objects.create(user=user)
+        user_info = {'username': user.username, 'phone': user.phone}
         return Response(data={'msg': '登录成功！', 'token': token.key, 'user_info': user_info})  # 返回登录信息及token
     return Response(data={'msg': '密码错误或该账号被禁用！'}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserView(LimView):
+class UserView(View):
     serializer_class = UserSerializer
-    queryset = LimUser.objects.all().order_by('date_joined')
+    queryset = ExpendUser.objects.all().order_by('date_joined')
     filterset_fields = ('is_active',)
 
     def post(self, request, *args, **kwargs):
@@ -44,7 +45,7 @@ class UserView(LimView):
         return self.create(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        admin_user = LimUser.objects.get(username='admin')
+        admin_user = ExpendUser.objects.get(username='admin')
         if request.data['id'] == admin_user.id:
             if request.data.get('username') and request.data['username'] != 'admin':
                 return Response({'msg': '不允许修改admin账号用户名！'}, status=status.HTTP_400_BAD_REQUEST)
@@ -104,5 +105,5 @@ def change_password(request):
     用户修改自己的密码
     """
     pwd = make_password(request.data['password'])
-    LimUser.objects.filter(id=request.user.id).update(password=pwd)
+    ExpendUser.objects.filter(id=request.user.id).update(password=pwd)
     return Response(data={'msg': '修改成功'})

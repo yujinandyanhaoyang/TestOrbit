@@ -6,8 +6,8 @@ from project.models import ProjectParamType
 from config.models import Environment
 
 
-class LimUser(AbstractUser):
-    real_name = models.CharField(verbose_name="真实姓名", default='', max_length=255)
+class ExpendUser(AbstractUser):
+    phone = models.CharField(verbose_name="手机号", default='', max_length=255)
 
     class Meta:
         verbose_name = '用户'
@@ -18,8 +18,8 @@ class UserEditModel(models.Model):
     """
     公共编辑用户来源模型
     """
-    creater = models.ForeignKey(to=LimUser, on_delete=models.PROTECT, default=1, verbose_name='创建用户')
-    updater = models.ForeignKey(to=LimUser, related_name="%(class)s_upd_user", on_delete=models.PROTECT,
+    creater = models.ForeignKey(to=ExpendUser, on_delete=models.PROTECT, default=1, verbose_name='创建用户')
+    updater = models.ForeignKey(to=ExpendUser, related_name="%(class)s_upd_user", on_delete=models.PROTECT,
                                 verbose_name='修改用户', null=True)
 
     class Meta:
@@ -27,7 +27,7 @@ class UserEditModel(models.Model):
 
 
 class UserCfg(models.Model):
-    user = models.OneToOneField(to=LimUser, on_delete=models.CASCADE, primary_key=True, verbose_name="关联用户")
+    user = models.OneToOneField(to=ExpendUser, on_delete=models.CASCADE, primary_key=True, verbose_name="关联用户")
     envir = models.ForeignKey(to=Environment, default=1, on_delete=models.CASCADE, verbose_name="默认用户环境")
     failed_stop = models.BooleanField(default=False, verbose_name="执行失败是否停止（跳过）执行")
     only_failed_log = models.BooleanField(default=False, verbose_name="仅记录失败的日志")
@@ -40,7 +40,7 @@ class UserCfg(models.Model):
 
 class UserTempParams(models.Model):
     id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(to=LimUser, on_delete=models.CASCADE, verbose_name="关联用户")
+    user = models.ForeignKey(to=ExpendUser, on_delete=models.CASCADE, verbose_name="关联用户")
     name = models.CharField(max_length=255, verbose_name="参数名称")
     value = models.JSONField(null=True, verbose_name="参数值")
     case = models.ForeignKey(to='apiData.ApiCase', null=True, on_delete=models.CASCADE, verbose_name="参数来源的用例")

@@ -1,5 +1,5 @@
 from django.db import models
-from utils.comModel import ProjectModel, ComTimeModel
+from utils.comModel import ProjectModel
 
 
 class Project(ProjectModel):

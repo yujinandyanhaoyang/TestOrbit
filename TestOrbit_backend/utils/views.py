@@ -10,7 +10,7 @@ from utils.comDef import get_module_related
 from utils.constant import PROTECT_CODE
 
 
-class LimView(mixins.ListModelMixin,
+class View(mixins.ListModelMixin,
               mixins.CreateModelMixin,
               mixins.UpdateModelMixin,
               mixins.DestroyModelMixin,

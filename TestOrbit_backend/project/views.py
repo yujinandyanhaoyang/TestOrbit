@@ -6,12 +6,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from utils.paramsDef import get_params_type_func
-from utils.views import LimView
+from utils.views import View
 from project.models import Project
 from project.serializers import ProjectSerializer
 
 
-class ProjectView(LimView):
+class ProjectView(View):
     """
     项目视图类
     处理项目的创建、列表、修改和删除

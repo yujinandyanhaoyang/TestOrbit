@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apiData.views import caseGroup, module_tree, caseStep, case_steps
+from apiData.views import caseGroup, module_tree, caseStep, case_steps,scheduledTask
 
 app_name = "apiData"
 
@@ -20,7 +20,6 @@ urlpatterns = [
     path('run-api-cases', caseGroup.run_api_cases),
     # 批量运行选中的用例组（支持并行或串行）
     path('batch-run-api-cases', caseGroup.batch_run_api_cases),
-    
     # 复制用例组
     path('copy-cases', caseGroup.copy_cases),
     # 标记选中用例组为删除状态
@@ -29,6 +28,14 @@ urlpatterns = [
     path('clean-deleted-cases', caseGroup.clean_deleted_cases),
     # 恢复被标记为删除的用例组
     path('restore-deleted-cases', caseGroup.restore_deleted_cases),
+
+    # 定时任务
+    # 创建定时运行API用例
+    path('schedule-api-cases', scheduledTask.schedule_api_cases),
+    # 获取定时任务列表
+    path('scheduled-tasks', scheduledTask.get_scheduled_tasks_list),
+    # 取消定时任务
+    path('cancel-scheduled-task', scheduledTask.cancel_scheduled_task_api),
 
 
 
