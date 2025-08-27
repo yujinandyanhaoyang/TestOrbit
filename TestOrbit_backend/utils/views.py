@@ -88,4 +88,4 @@ class View(mixins.ListModelMixin,
         mod_data = dict(serializer.data)
         mod_data['module_related'] = get_module_related(model, mod_data['id'], [])
         model.objects.filter(id=mod_data['id']).update(**mod_data)
-        return Response(data={'msg': '创建成功！'})
+        return Response(data={'message': '创建成功！'})

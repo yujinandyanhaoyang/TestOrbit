@@ -23,10 +23,17 @@ def login(request):
     # 验证用户账号密码的内置方法
     user = authenticate(username=request.data['username'], password=request.data['password'])
     if user:
-        # 删除旧的token（如果存在）
-        Token.objects.filter(user_id=user.id).delete()
-        # 创建新的token
-        token = Token.objects.create(user=user)
+        # # 删除旧的token（如果存在）
+        # Token.objects.filter(user_id=user.id).delete()
+        # # 创建新的token
+        # token = Token.objects.create(user=user)
+
+        # 开发模式下暂时固定token
+        if Token.objects.filter(user_id=user.id).exists():
+            token = Token.objects.get(user_id=user.id)
+        else:
+            token = Token.objects.create(user=user)
+
         user_info = {'username': user.username, 'phone': user.phone}
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])

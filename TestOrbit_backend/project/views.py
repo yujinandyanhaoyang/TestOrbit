@@ -37,7 +37,24 @@ class ProjectView(View):
         project_count = Project.objects.count()
         if project_count == 1:
             return Response({'msg': '必须保留至少一个项目！'}, status=status.HTTP_400_BAD_REQUEST)
-        return self.destroy(request, *args, **kwargs)
+        
+        # 获取当前项目实例
+        instance = self.get_object()
+        
+        # 检查是否有关联的用例模块
+        from apiData.models import ApiCaseModule
+        modules_count = ApiCaseModule.objects.filter(project=instance).count()
+        
+        if modules_count > 0:
+            return Response({
+                'msg': f'无法删除该项目，请先删除项目下的 {modules_count} 个用例模块！',
+                'code': 'protected_error'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            return self.destroy(request, *args, **kwargs)
+        except Exception as e:
+            return Response({'msg': f'删除项目失败：{str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

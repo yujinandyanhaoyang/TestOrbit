@@ -11,7 +11,7 @@ class ApiModule(ComTimeModel, ComModuleModel):
     project = models.ForeignKey(to=Project, default=1, verbose_name="关联项目", on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = '用例模块'
+        verbose_name = '用例模块(旧)'
         db_table = 'api_module'
 
     unique_together = ('project', 'name')
@@ -26,6 +26,7 @@ class ApiModule(ComTimeModel, ComModuleModel):
 class ApiCaseModule(ComTimeModel, ComModuleModel):
     name = models.CharField(max_length=100, verbose_name="模块名称")
     position = models.IntegerField(default=0, verbose_name='排序优先级')
+    project = models.ForeignKey(to=Project, verbose_name="关联项目", on_delete=models.PROTECT, null=False, blank=False)
 
     class Meta:
         verbose_name = '用例模块'

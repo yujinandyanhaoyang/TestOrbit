@@ -6,10 +6,15 @@ app_name = "apiData"
 
 urlpatterns = [
     # 模块树
+    # 获取用例模块树
     path('tree-case-module', module_tree.tree_case_module),
+    
     path('tree-cascader-module-case', module_tree.tree_cascader_module_case),
     path('tree-api-module', module_tree.tree_api_module),
+
+    # 新增和删除模块树接口
     path('case-module-view', module_tree.CaseModuleViews.as_view()),
+
     path('api-module-view',  module_tree.ApiModuleViews.as_view()),
     
 

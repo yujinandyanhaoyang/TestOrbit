@@ -56,7 +56,7 @@ def get_next_id(model, prefix):
     if cur_id:
         return create_next_id(cur_id)
     else:
-        return prefix + '00000001'
+        return prefix + '0001'
 
 
 def db_connect(data):
