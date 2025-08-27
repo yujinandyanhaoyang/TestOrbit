@@ -49,3 +49,21 @@ def check_project_permission(user, project_id, operation=None, return_response=F
             "msg": f"权限不足，您没有权限{operation_msg}",
             "code": 403
         }, status=403)
+
+
+def get_project_id_by_case(case_id):
+    """
+    通过用例ID获取项目ID
+    
+    Args:
+        case_id: 用例ID
+        
+    Returns:
+        int or None: 项目ID，如果用例不存在返回None
+    """
+    try:
+        from apiData.models import ApiCase
+        case = ApiCase.objects.select_related('module__project').get(id=case_id)
+        return case.module.project.id
+    except ApiCase.DoesNotExist:
+        return None

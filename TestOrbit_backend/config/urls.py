@@ -1,5 +1,6 @@
 from django.urls import path
 from config import views
+from config import views_env 
 
 app_name = "config"
 
@@ -12,8 +13,10 @@ urlpatterns = [
     path('run-sql', views.run_sql),
     path('get-index-statistics', views.get_index_statistics),
 
-    #新接口
-    path('env-view', views.EnvironmentView.as_view()),
-    path('env-overview', views.environment_overview),
+    #新接口 
+    path('env-view', views.EnvironmentView.as_view()),              # 基础环境管理（保留兼容性）
+    
+    # 统一管理全局和局部环境的CRUD
+    path('env-overview',views_env.environment_overview),               
 
 ]

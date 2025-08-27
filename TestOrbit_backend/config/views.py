@@ -16,8 +16,8 @@ from utils.constant import API, DB, DEFAULT_MODULE_NAME, SUCCESS, API_HOST, API_
 from utils.paramsDef import set_user_temp_params
 from utils.views import View
 from project.models import Project
-from config.models import Environment  # 移除 ProjectEnvirData 导入
-from config.serializers import EnvironmentSerializer
+from config.models import Environment, ProjectEnvironment, CaseEnvironment  # 移除 ProjectEnvirData 导入
+from config.serializers import EnvironmentSerializer, CaseEnvironmentSerializer
 from user.models import UserTempParams
 
 
@@ -26,8 +26,6 @@ class EnvironmentView(View):
     环境配置视图类
     处理环境配置的创建、列表、修改和删除
     
-    技术债务处理: 移除了 ProjectEnvirData 表的依赖，直接使用 Environment 表
-    现在所有项目都可以访问所有环境
     """
     serializer_class = EnvironmentSerializer
     queryset = Environment.objects.order_by('-created')
@@ -83,26 +81,6 @@ class EnvironmentView(View):
             return self.partial_update(request, *args, **kwargs)
         except Exception as e:
             return Response(data={'msg': f"执行出错:{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-def environment_overview(request):
-    """
-    项目概览页
-    """
-    view_type = request.query_params['type']
-    pro_dict = {}
-    total_count = 0
-    if view_type == API:
-        data = ApiCaseStep.objects.values('id', 'project_id', 'project__name')
-        for v in data:
-            if (pro_id := v['project_id']) not in pro_dict:
-                pro_dict[pro_id] = {'name': v['project__name'], 'count': 0}
-            pro_dict[pro_id]['count'] += 1
-            total_count += 1
-    res_data = {'total_count': total_count, 'data': [
-        {'id': key, 'name': pro_dict[key]['name'], 'count': pro_dict[key]['count']} for key in pro_dict]}
-    return Response(data=res_data)
 
 
 @api_view(['GET'])
