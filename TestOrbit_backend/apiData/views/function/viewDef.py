@@ -415,6 +415,28 @@ class ApiCasesActuator:
                         res_status = ext_res['status']
                     if ext_res['status'] == FAILED:
                         results = self.api_process + ext_res.get('results', '')
+                        
+                    # 执行断言规则
+                    from apiData.views.function.assertions_executor import execute_assertions
+                    # 检查是否有step_id用于断言
+                    if 'step_id' in step:
+                        # 执行断言，主要针对响应体
+                        assertion_result = execute_assertions(
+                            step_id=step['step_id'],
+                            response=response,
+                            status_code=res_code,
+                            headers=dict(r.headers)
+                        )
+                        
+                        # 将断言结果添加到请求日志
+                        req_log['assertion_results'] = assertion_result['results']
+                        
+                        # 根据断言结果更新状态
+                        if not assertion_result['passed']:
+                            res_status = FAILED
+                            results = assertion_result['summary'] + (f"\n{results}" if results else "")
+                    else:
+                        print("⚠️ 步骤ID不存在，跳过断言执行")
                 elif res_code == 404:
                     results = '请求路径不存在！'
                     res_status = FAILED
@@ -429,49 +451,7 @@ class ApiCasesActuator:
                     'spend_time': spend_time, 
                     'results': results
                 })
-                
-                print('保存结果到ApiCaseStep')
-                # 更新API步骤的执行状态和结果
-                if 'step_id' in step:
-                    step_id = step['step_id']
-                    try:
-                        # 获取当前时间
-                        now = datetime.datetime.now()
-                        # 更新步骤的状态和结果
-                        ApiCaseStep.objects.filter(id=step_id).update(
-                            status=res_status, 
-                            results=req_log,
-                            updated=now
-                        )
-                        print(f"✅ 成功更新步骤状态(ID={step_id})为: {res_status}")
-                        
-                        # 获取所属用例ID
-                        case_id = None
-                        if 'case_id' in step:
-                            case_id = step['case_id']
-                        else:
-                            step_obj = ApiCaseStep.objects.filter(id=step_id).first()
-                            if step_obj:
-                                case_id = step_obj.case_id
-                                
-                        # 如果找到了用例ID，更新用例的最近运行时间和状态
-                        if case_id:
-                            # 如果成功时设为SUCCESS，如果失败则设为FAILED
-                            ApiCase.objects.filter(id=case_id).update(
-                                latest_run_time=now,
-                                status=res_status
-                            )
-                            print(f"✅ 成功更新用例状态(ID={case_id})为: {res_status}，并更新运行时间")
-                    except Exception as e:
-                        print(f"❌ 更新步骤状态失败: {str(e)}")
-                
-                print()
-                print(f"\n⏱️ 请求耗时: {spend_time}秒")
-                print(f"🔢 状态码: {res_code}")
-                print(f"📊 结果状态: {res_status}")
-                if results:
-                    print(f"📝 结果消息: {results}")
-                
+                 
         except Exception as e:
             print(f"\n❌ API执行出错: {str(e)}")
             print(f"❌ 错误行号: {e.__traceback__.tb_lineno}")
@@ -662,137 +642,6 @@ class ApiCasesActuator:
                     break
             res = [req_data, body_log]
         return res
-
-
-# def save_results(step_data, case_data):
-#     """
-#     执行完成后，写入结果
-#     """
-
-#     ApiCase.objects.bulk_update(case_data, fields=('status', 'report_data', 'latest_run_time'))
-#     ApiCaseStep.objects.bulk_update(step_data, fields=('status', 'results', 'params'))
-
-
-# def run_step_groups(actuator_obj, step_data, prefix_label='', cascader_level=0, i=0):
-#     """
-#     执行步骤合集
-#     """
-#     # 默认测试是通过的
-#     run_status = SUCCESS
-#     print('开始使用run_step_groups函数执行步骤合集')
-#     for step in step_data:
-
-#         # 往step中添加step_id，方便后续引用
-#         step['step_id'] = step.get('id')
-#         step_id = step.get('id')
-#         s_type = step['type']
-
-#         if step.get('enabled'):
-#             params = {'actuator_obj': actuator_obj, 'step_id': step_id, 'prefix_label': prefix_label,
-#                       'i': i}
-#             if s_type in (API_CASE, API_FOREACH):
-#                 params['cascader_level'] = cascader_level + 1
-#             # print(f'params:{params}\t')
-#             res = go_step(**params)
-#             # print(f'{step["step_name"]}步骤执行结果: {res}')
-#             step.update(res)
-#         else:
-#             step['status'] = DISABLED
-#         # step.update({'status': res['status'], 'results': res.get('results')})
-#         # 当测试计划状态为通过且步骤状态为失败时，就将计划状态改为失败
-#         print('\t')
-#         if run_status != FAILED and step['status'] == FAILED:
-#             run_status = FAILED
-#     return run_status, step_data
-
-
-
-
-# monitor_interrupt 函数已移动到 monitor_def.py
-
-
-# def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
-#     """
-#     执行api用例的主方法
-#     执行测试计划：case_data={case_id:[step1,step2,step3]}
-#     实时调试/步骤中计划：case_data=[step1,step2,step3]
-#     temp_params为空的话则查询用户的参数来测试。
-#     """
-
-#     res_step_objs, res_case_objs = [], []
-#     actuator_obj = ApiCasesActuator(user_id, cfg_data=cfg_data, temp_params=temp_params)
-#     thread = MyThread(target=monitor_interrupt, args=[user_id, actuator_obj])
-#     thread.start()
-#     if isinstance(case_data, dict):
-#         for case_id, v in case_data.items():
-#             print(f'这是{case_id}号用例')
-#             start_time = datetime.datetime.now()
-#             case_objs = ApiCase.objects.filter(id=case_id).first()
-#             if case_objs:
-#                 print('标记用例任务执行状态为running')
-#                 case_objs.status = RUNNING
-#                 case_objs.save(update_fields=['status'])
-#             report_dict = {'envir': actuator_obj.envir, 'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
-#                            'steps': []}
-#             actuator_obj.base_params_source['case_id'] = case_id
-#             # 默认测试是通过的
-#             case_status, step_data = run_step_groups(actuator_obj, v)
-#             # print('步骤执行结果:', step_data)
-
-#             report_dict['steps'] = step_data
-
-#             print(f'开始存储用例组{case_id}所有步骤执行的结果\t')
-#             for step in step_data:
-#                 # 过滤掉不属于ApiCaseStep模型的字段
-#                 valid_fields = {
-#                     'id', 'type', 'enabled', 'step_name', 'step_order', 'status', 
-#                     'retried_times', 'controller_data', 'params', 'results', 
-#                     'timeout', 'source', 'case_id'
-#                 }
-#                 filtered_step = {k: v for k, v in step.items() if k in valid_fields}
-                
-#                 # 将执行结果(data字段)存储到results字段中
-#                 if 'data' in step and step['data']:
-#                     filtered_step['results'] = step['data']
-                
-#                 # 确保case_id字段存在
-#                 filtered_step['case_id'] = case_id
-#                 res_step_objs.append(ApiCaseStep(**filtered_step))
-#             end_time = datetime.datetime.now()
-#             report_dict['spend_time'] = format((end_time - start_time).total_seconds(), '.1f')
-#             if actuator_obj.status in (INTERRUPT, FAILED_STOP):
-#                 case_status = actuator_obj.status
-#             res_case_objs.append(
-#                 ApiCase(id=case_id, status=case_status, latest_run_time=end_time, report_data=report_dict))
-#             print(f'已完成{case_id}号用例的执行')
-#         save_results(res_step_objs, res_case_objs)
-        
-#         # 确保执行状态设置为WAITING，通知监控线程可以终止
-#         UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
-        
-#         return {'params_source': actuator_obj.params_source}
-
-
-# def parse_api_case_steps(case_ids=None, is_step=False):
-#     """
-#     转化API计划步骤
-#     is_step:false代表非步骤中的用例，即外层计划列表中选中执行的用例
-#     """
-#     step_data = []
-#     if case_ids:
-#         # 参数现在通过关联的ApiData.params获取
-#         step_data = list(ApiCaseStep.objects.filter(case_id__in=case_ids).select_related(
-#             'case', 'case__module').values(
-#             'case_id', 'step_order', 'step_name', 'type', 'status', 'results', 'id',
-#             'controller_data', 'enabled','params').order_by('case_id', 'step_order'))
-        
-        
-#         if not is_step:  # 如果非测试计划步骤而是执行测试用例，需要转为{case_id:[step,step],case_id2:[step,step]}的形式
-#             case_data = {case_id: [] for case_id in case_ids}  # {case1:steps,case2:steps}
-#             for step in step_data:
-#                 case_data[step['case_id']].append(step)
-#             return case_data
-#     return step_data
 
 
 def parse_create_foreach_steps(save_step_objs, foreach_step, parent_step, next_order, parent_id=None):

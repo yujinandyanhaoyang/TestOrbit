@@ -14,10 +14,32 @@ apiData/serializers.py - API 数据序列化器模块
 """
 
 from rest_framework import serializers
-from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
+from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep, AssertionRule
 from apiData.views.function.viewDef import set_foreach_tree
 from utils.comSerializers import ComEditUserNameSerializer
 from utils.constant import API_FOREACH, API
+
+
+class AssertionRuleSerializer(serializers.ModelSerializer):
+    """
+    断言规则序列化器
+    
+    用于序列化和反序列化断言规则模型，表示API测试步骤的断言规则。
+    """
+    class Meta:
+        model = AssertionRule
+        fields = '__all__'
+        
+    def to_representation(self, instance):
+        """自定义序列化表示"""
+        data = super().to_representation(instance)
+        # 添加断言的友好显示文本，例如: $.book[0].price == 8.95
+        if data['type'] == 'jsonpath':
+            expression = data['expression'] 
+            operator = data['operator']
+            expected = data['expected_value']
+            data['display_text'] = f"{expression} {operator} {expected}"
+        return data
 
 
 class CaseModuleSerializer(serializers.ModelSerializer):
@@ -66,9 +88,9 @@ class ApiCaseStepSerializer(serializers.ModelSerializer):
     排除了case、api和quote_case字段，这些关系可能在其他地方处理。
     """
     params = serializers.SerializerMethodField()
+    assertions = AssertionRuleSerializer(many=True, read_only=True)
     
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
     
     def to_representation(self, instance):
@@ -127,7 +149,7 @@ class ApiCaseStepSerializer(serializers.ModelSerializer):
         model = ApiCaseStep
         fields = ('id', 'step_name', 'step_order', 'type', 'status', 'enabled', 
                  'controller_data', 'retried_times', 'results', 'params',
-                 'timeout', 'source')
+                 'timeout', 'source', 'assertions')
 
 
 class ApiCaseRelationApiStepSerializer(serializers.ModelSerializer):

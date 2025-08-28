@@ -136,6 +136,55 @@ class ApiCaseStep(ComTimeModel, models.Model):
         unique_together = ('case', 'step_order')
 
 
+class AssertionRule(models.Model):
+    """
+    断言规则模型
+    用于存储API测试步骤的断言规则信息
+    """
+    id = models.AutoField(primary_key=True)
+    # 关联的测试步骤
+    step = models.ForeignKey(to=ApiCaseStep, related_name='assertions', on_delete=models.CASCADE, verbose_name="所属测试步骤")
+    # 断言类型
+    type = models.CharField(max_length=50, choices=[
+        ('jsonpath', 'JSONPath'),
+        ('regex', 'Regular Expression'),
+        ('xpath', 'XPath'),
+        ('header', 'HTTP Header'),
+        ('status_code', 'Status Code')
+    ], default='jsonpath', verbose_name="断言类型")
+    # 断言表达式
+    expression = models.TextField(verbose_name="断言表达式")
+    # 比较运算符
+    operator = models.CharField(max_length=20, choices=[
+        ('==', '等于'),
+        ('!=', '不等于'),
+        ('>', '大于'),
+        ('<', '小于'),
+        ('>=', '大于等于'),
+        ('<=', '小于等于'),
+        ('contains', '包含'),
+        ('not_contains', '不包含'),
+        ('starts_with', '开头是'),
+        ('ends_with', '结尾是'),
+        ('empty', '为空'),
+        ('not_empty', '不为空'),
+        ('null', '为null'),
+        ('not_null', '不为null'),
+    ], default='==', verbose_name="比较运算符")
+    # 预期值
+    expected_value = models.TextField(null=True, blank=True, verbose_name="预期值")
+    # 创建时间
+    created = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    # 更新时间
+    updated = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    # 是否启用
+    enabled = models.BooleanField(default=True, verbose_name="是否启用")
+
+    class Meta:
+        verbose_name = 'API断言规则'
+        db_table = 'api_assertion_rule'
+
+
 class ApiForeachStep(models.Model):
 
     step_order = models.PositiveIntegerField(verbose_name="步骤顺序")

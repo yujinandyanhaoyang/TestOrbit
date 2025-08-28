@@ -14,10 +14,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="apicase",
-            name="report_data",
-        ),
         migrations.CreateModel(
             name="Report",
             fields=[

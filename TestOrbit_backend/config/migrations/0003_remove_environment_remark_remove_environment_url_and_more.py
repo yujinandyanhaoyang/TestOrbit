@@ -12,14 +12,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="environment",
-            name="remark",
-        ),
-        migrations.RemoveField(
-            model_name="environment",
-            name="url",
-        ),
         migrations.AlterField(
             model_name="caseenvironment",
             name="environment",

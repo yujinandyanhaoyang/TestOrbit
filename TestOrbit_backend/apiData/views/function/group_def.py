@@ -12,7 +12,7 @@ from openpyxl import load_workbook
 from requests import ReadTimeout
 from rest_framework.response import Response
 
-from apiData.models import ApiCaseStep, ApiCase, ApiForeachStep
+from apiData.models import ApiCaseStep, ApiCase, ApiForeachStep, Report
 from utils.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
     close_db_con, json_dumps, JSONEncoder, MyThread, json_loads, format_parm_type_v
 from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
@@ -136,13 +136,107 @@ def parse_api_case_steps(case_ids=None, is_step=False):
 
 
 """
-执行完成后，写入结果
+执行完成后，写入结果并生成报告
 """
-def save_results(case_data):
-    # 只更新用例的状态和报告数据
-    if case_data:
-        ApiCase.objects.bulk_update(case_data, fields=('status', 'report_data', 'latest_run_time'))
-        print(f'成功更新 {len(case_data)} 个用例的状态和报告数据')
+def save_results(case_data, user_id):
+    if not case_data:
+        return
+    #  创建执行报告
+    try:
+        print(f'case_data: {case_data}')
+        # 获取第一个用例的项目信息
+        first_case = case_data[0]
+        case_obj = ApiCase.objects.select_related('module__project').get(id=first_case.id)
+        project = case_obj.module.project
+        
+        # 构建报告名称
+        report_name = f"API测试报告 - {datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # 构建综合报告数据
+        report_data = {
+            'execution_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'cases': [],
+            'summary': {
+                'total_cases': len(case_data),
+                'success_cases': 0,
+                'failed_cases': 0,
+                'success_rate': 0
+            }
+        }
+        print('所有报告数据基本准备完成')
+        
+        # 收集所有用例的结果
+        for case in case_data:
+            # 获取用例详细信息
+            case_obj = ApiCase.objects.get(id=case.id)
+            case_steps = ApiCaseStep.objects.filter(case_id=case.id).order_by('step_order')
+            
+            # 计算步骤统计信息
+            total_steps = len(case_steps)
+            enabled_steps = len([s for s in case_steps if s.enabled])
+            success_steps = len([s for s in case_steps if s.status == SUCCESS and s.enabled])
+            
+            # 计算成功率
+            success_rate = (success_steps / enabled_steps * 100) if enabled_steps > 0 else 0
+            success_rate = round(success_rate, 2)
+            
+            # 构建步骤信息列表
+            steps_info = []
+            for step in case_steps:
+                steps_info.append({
+                    'id': step.id,
+                    'name': step.step_name,
+                    'order': step.step_order,
+                    'type': step.type,
+                    'enabled': step.enabled,
+                    'status': step.status,
+                    'results': step.results
+                })
+            
+            # 计算执行时间(秒)
+            spend_time = 0
+            if case_obj.latest_run_time:
+                time_diff = case_obj.latest_run_time - case_obj.created
+                spend_time = round(time_diff.total_seconds(), 2)
+            
+            # 添加用例报告数据
+            case_info = {
+                'statistics': {
+                    'total_steps': total_steps,
+                    'enabled_steps': enabled_steps,
+                    'success_steps': success_steps,
+                    'success_rate': success_rate,
+                    'success_rate_str': f'{success_rate}%'
+                },
+                'steps': steps_info,
+                'spend_time': spend_time
+            }
+            report_data['cases'].append(case_info)
+            
+            # 更新总体统计信息
+            if case.status == SUCCESS:
+                report_data['summary']['success_cases'] += 1
+            elif case.status == FAILED:
+                report_data['summary']['failed_cases'] += 1
+        
+        # 计算总体成功率
+        total_cases = report_data['summary']['total_cases']
+        if total_cases > 0:
+            success_rate = (report_data['summary']['success_cases'] / total_cases) * 100
+            report_data['summary']['success_rate'] = round(success_rate, 2)
+            report_data['summary']['success_rate_str'] = f"{round(success_rate, 2)}%"
+        
+        # 创建报告记录
+        Report.objects.create(
+            name=report_name,
+            report_data=report_data,
+            creater_id=user_id,
+            project=project
+        )
+        print(f'成功创建执行报告: {report_name}')
+        
+    except Exception as e:
+        print(f'创建执行报告失败: {str(e)}')
 
 
 
@@ -223,40 +317,10 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
             case_objs.status = RUNNING
             case_objs.save(update_fields=['status'])
         
-        report_dict = {
-            'envir': actuator_obj.envir, 
-            'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'steps': []
-        }
         actuator_obj.base_params_source['case_id'] = case_id
         
         # 执行步骤组
         case_status, step_data = run_step_groups(actuator_obj, case_data)
-        report_dict['steps'] = step_data
-        
-        # 从数据库中查询该用例的所有步骤的最新状态
-        db_steps = ApiCaseStep.objects.filter(case_id=case_id)
-        total_steps = db_steps.count()
-        enabled_steps = db_steps.filter(enabled=True)
-        enabled_step_count = enabled_steps.count()
-        success_steps = enabled_steps.filter(status=SUCCESS)
-        success_count = success_steps.count()
-        
-        # 计算成功率百分比
-        if enabled_step_count > 0:
-            success_rate = (success_count / enabled_step_count) * 100
-        else:
-            success_rate = 0
-            
-        # 添加统计数据到报告
-        report_dict['statistics'] = {
-            'total_steps': total_steps,
-            'enabled_steps': enabled_step_count,
-            'success_steps': success_count,
-            'success_rate': round(success_rate, 2),  # 保留两位小数
-            'success_rate_str': f"{round(success_rate, 2)}%"  # 带百分号的字符串形式
-        }
-        print(f"步骤成功率(数据库查询): {success_count}/{enabled_step_count} = {round(success_rate, 2)}%")
 
         print(f'开始存储用例组{case_id}所有步骤执行的结果\t')
         for step in step_data:
@@ -272,7 +336,6 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
             if 'data' in step and step['data']:
                 filtered_step['results'] = step['data']
 
-            
             # 正确设置外键关系，使用case而不是case_id
             if 'id' in filtered_step:
                 # 如果有ID，说明是更新现有记录
@@ -306,38 +369,43 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
             print(f'成功保存 {len(temp_step_objs)} 个步骤的执行结果')
         
         end_time = datetime.datetime.now()
-        report_dict['spend_time'] = format((end_time - start_time).total_seconds(), '.1f')
         if actuator_obj.status in (INTERRUPT, FAILED_STOP):
             case_status = actuator_obj.status
+        
+        # 只保存最基本的用例状态信息
         res_case_objs.append(
-            ApiCase(id=case_id, status=case_status, latest_run_time=end_time, report_data=report_dict))
+            ApiCase(id=case_id, 
+                   status=case_status, 
+                   latest_run_time=end_time))
         print(f'已完成{case_id}号用例的执行')
     
     else:
         print("警告：未识别的case_data格式或空数据")
         
-    save_results( res_case_objs)
+    save_results(res_case_objs, user_id)
     
     # 确保执行状态设置为WAITING，通知监控线程可以终止
     UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
     
-    # 构建返回结果
-    result = {
-        'cases': []
-    }
-    
-    # 从数据库中获取最新的用例状态和报告数据
-    for case_obj in res_case_objs:
-        # 获取数据库中最新的用例数据
-        fresh_case = ApiCase.objects.filter(id=case_obj.id).values('id', 'status', 'report_data').first()
-        if fresh_case and fresh_case['report_data'] and 'statistics' in fresh_case['report_data']:
-            result['cases'].append({
-                'id': fresh_case['id'],
-                'status': fresh_case['status'],
-                'statistics': fresh_case['report_data'].get('statistics', {}),
-                'steps': fresh_case['report_data'].get('steps', []),
-                'spend_time': fresh_case['report_data'].get('spend_time', 0)
-            })
+    # 从最新创建的报告中获取结果
+    try:
+        latest_report = Report.objects.filter(
+            creater_id=user_id
+        ).order_by('-created').first()
+        
+        if latest_report:
+            result = latest_report.report_data
+        else:
+            # 如果没有找到报告，返回基本信息
+            result = {
+                'cases': [{
+                    'id': case_obj.id,
+                    'status': case_obj.status
+                } for case_obj in res_case_objs]
+            }
+    except Exception as e:
+        print(f'获取报告数据失败: {str(e)}')
+        result = {'error': '获取报告数据失败'}
     
     print('执行完成，返回结果')
     return result

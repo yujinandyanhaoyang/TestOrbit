@@ -90,13 +90,13 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
         case_step_obj = ApiCaseStep.objects.filter(id=step_id).first()
         # 初始化step
         step = {}
+        step['step_id'] = step_id  # 添加步骤ID
         step['params'] = case_step_obj.params if case_step_obj else {}
         step['controller_data'] = case_step_obj.controller_data if case_step_obj else {}
         # 获取步骤类型
         s_type = case_step_obj.type if case_step_obj else None
         step['type'] = s_type
         step['step_name'] = case_step_obj.step_name if case_step_obj else "未命名步骤"
-
 
     # 检查是否需要中断执行
     if actuator_obj.status in (INTERRUPT, FAILED_STOP):
@@ -190,9 +190,8 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
 
     # 保存运行结果
     print("💾 保存步骤执行结果到ApiCaseStep.results...")
-    if step_id:
-        # 直接更新数据库中的记录
-        ApiCaseStep.objects.filter(id=step_id).update(results=res.get('data', {}))
+    # 更新对应步骤的result和status
+    ApiCaseStep.objects.filter(id=step_id).update(results=res.get('data', {}), status=res['status'])
 
     print(f"🏁 go_step函数执行完成，返回状态: {res['status']}")
     print("-"*50 + "\n")

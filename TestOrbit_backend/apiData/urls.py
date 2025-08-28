@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apiData.views import caseGroup, module_tree, caseStep, case_steps,scheduledTask
+from apiData.views import caseGroup, module_tree, caseStep, case_steps, scheduledTask, assertions
 
 app_name = "apiData"
 
@@ -21,8 +21,6 @@ urlpatterns = [
     # 用例组
     # 用例组CRUD完成
     path('case-view', caseGroup.ApiCaseViews.as_view()),#一直在用这个接口
-    # 运行整个用例组-废弃，简化操作，与批量运行使用相同请求体
-    # path('run-api-cases', caseGroup.run_api_cases),
 
 
     # 批量运行选中的用例组（支持并行或串行）
@@ -79,5 +77,7 @@ urlpatterns = [
     path('steps/add', case_steps.add_steps),            # 添加步骤
     path('steps/update', case_steps.update_step),       # 更新步骤
     
-    
+    # 断言规则管理
+    path('assertions', assertions.AssertionRuleView.as_view()),         # 断言规则CRUD
+    path('validate-jsonpath', assertions.validate_jsonpath),            # 验证JSONPath表达式
 ]
