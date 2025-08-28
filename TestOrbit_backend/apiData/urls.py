@@ -21,8 +21,10 @@ urlpatterns = [
     # 用例组
     # 用例组CRUD完成
     path('case-view', caseGroup.ApiCaseViews.as_view()),#一直在用这个接口
-    # 运行整个用例组
-    path('run-api-cases', caseGroup.run_api_cases),
+    # 运行整个用例组-废弃，简化操作，与批量运行使用相同请求体
+    # path('run-api-cases', caseGroup.run_api_cases),
+
+
     # 批量运行选中的用例组（支持并行或串行）
     path('batch-run-api-cases', caseGroup.batch_run_api_cases),
     # 复制用例组

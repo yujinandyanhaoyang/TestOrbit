@@ -310,7 +310,7 @@ class ApiCasesActuator:
         # print('开始拼接URL...')
         url = host + url_path
         req_log = {'url': url, 'method': method, 'response': '无响应结果', 'res_header': '无响应头'}
-        res_status, results = FAILED, ''
+        res_status, results = WAITING, ''  # 初始化为等待状态
         try:
             print('开始封装请求数据...')
             self.api_process = '【Header(请求头)】'
@@ -322,15 +322,31 @@ class ApiCasesActuator:
                 # 只有没有默认请求头时才将自定义的请求头设置为默认请求头，如果使用了全局参数且有默认请求头，则永远不会替换
                 if not self.default_header:
                     self.default_header = copy.deepcopy(header)
+            elif headers := params.get('headers'):
+                # 如果没有header_source但有headers直接参数，则使用它
+                # print(f'直接从params获取headers参数: {headers}')
+                header = {str(key).lower(): str(headers[key]) for key in headers}  # header的key全部转换为小写
+                if not header.get('content-type'):
+                    header['content-type'] = 'application/json'
             else:
                 header = copy.deepcopy(self.default_header) or {'content-type': 'application/json'}
             self.api_process = '【query(url参数)】'
             # 处理query参数
-            query = self.parse_source_params(params.get('query_source'), params.get('query_mode', 'raw'), i)
+            # 首先尝试获取query_source，如果不存在则尝试直接获取query
+            if query_source := params.get('query_source'):
+                query = self.parse_source_params(query_source, params.get('query_mode', 'raw'), i)
+            else:
+                query = params.get('query', {})
+                # print(f'直接从params获取query参数: {query}')
+            
             self.api_process = '【Body(请求体)】'
             # 处理body参数
             if params.get('body_mode', 'raw') != FORM_MODE:
-                body = self.parse_source_params(params.get('body_source'), params.get('body_mode', 'raw'), i)
+                # 首先尝试获取body_source，如果不存在则尝试直接获取body
+                if body_source := params.get('body_source'):
+                    body = self.parse_source_params(body_source, params.get('body_mode', 'raw'), i)
+                else:
+                    body = params.get('body', {})
             else:
                 body = self.parse_source_params(
                     params.get('body_source'), params.get('body_mode', 'raw'), i, file_list=upload_files_list)
@@ -368,12 +384,16 @@ class ApiCasesActuator:
 
             except KeyError as e:
                 req_log['results'] = results = self.api_process + '未找到key：' + str(e)
+                res_status = FAILED
             except (requests.exceptions.ConnectionError, ReadTimeout):
                 req_log['response'] = results = '请求超时！'
+                res_status = FAILED
             except requests.exceptions.InvalidSchema:
                 req_log['results'] = results = '无效的请求地址！'
+                res_status = FAILED
             except requests.exceptions.MissingSchema:
                 req_log['results'] = results = '请求地址不能为空！'
+                res_status = FAILED
             else:
                 spend_time = float('%.2f' % r.elapsed.total_seconds())
                 res_code = r.status_code
@@ -397,8 +417,10 @@ class ApiCasesActuator:
                         results = self.api_process + ext_res.get('results', '')
                 elif res_code == 404:
                     results = '请求路径不存在！'
+                    res_status = FAILED
                 else:
                     results = '请求异常！'
+                    res_status = FAILED
                 # 更新请求日志
                 req_log.update({
                     'url': r.url, 
@@ -409,6 +431,40 @@ class ApiCasesActuator:
                 })
                 
                 print('保存结果到ApiCaseStep')
+                # 更新API步骤的执行状态和结果
+                if 'step_id' in step:
+                    step_id = step['step_id']
+                    try:
+                        # 获取当前时间
+                        now = datetime.datetime.now()
+                        # 更新步骤的状态和结果
+                        ApiCaseStep.objects.filter(id=step_id).update(
+                            status=res_status, 
+                            results=req_log,
+                            updated=now
+                        )
+                        print(f"✅ 成功更新步骤状态(ID={step_id})为: {res_status}")
+                        
+                        # 获取所属用例ID
+                        case_id = None
+                        if 'case_id' in step:
+                            case_id = step['case_id']
+                        else:
+                            step_obj = ApiCaseStep.objects.filter(id=step_id).first()
+                            if step_obj:
+                                case_id = step_obj.case_id
+                                
+                        # 如果找到了用例ID，更新用例的最近运行时间和状态
+                        if case_id:
+                            # 如果成功时设为SUCCESS，如果失败则设为FAILED
+                            ApiCase.objects.filter(id=case_id).update(
+                                latest_run_time=now,
+                                status=res_status
+                            )
+                            print(f"✅ 成功更新用例状态(ID={case_id})为: {res_status}，并更新运行时间")
+                    except Exception as e:
+                        print(f"❌ 更新步骤状态失败: {str(e)}")
+                
                 print()
                 print(f"\n⏱️ 请求耗时: {spend_time}秒")
                 print(f"🔢 状态码: {res_code}")
@@ -420,6 +476,7 @@ class ApiCasesActuator:
             print(f"\n❌ API执行出错: {str(e)}")
             print(f"❌ 错误行号: {e.__traceback__.tb_lineno}")
             req_log['results'] = results = self.api_process + str(e)
+            res_status = FAILED
             
         # 清理临时文件
         # print("\n🧹 清理临时上传文件...")

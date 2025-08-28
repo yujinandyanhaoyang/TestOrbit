@@ -5,6 +5,7 @@ from utils.constant import WAITING
 from project.models import Project
 from user.models import UserEditModel
 from config.models import Environment
+from user.models import ExpendUser 
 
 
 class ApiModule(ComTimeModel, ComModuleModel):
@@ -39,7 +40,6 @@ class ApiCase(ComTimeModel, UserEditModel):
     module = models.ForeignKey(to=ApiCaseModule, on_delete=models.PROTECT, verbose_name="所属模块")
     status = models.IntegerField(default=WAITING, verbose_name="执行结果")
     remark = models.TextField(null=True, verbose_name="用例备注")
-    report_data = models.JSONField(null=True, verbose_name="测试报告数据")
     is_deleted = models.BooleanField(default=0, verbose_name="是否删除")
     latest_run_time = models.DateTimeField(null=True, verbose_name='最后一次执行时间')
     position = models.IntegerField(default=0, verbose_name='排序优先级')
@@ -50,7 +50,6 @@ class ApiCase(ComTimeModel, UserEditModel):
         db_table = 'api_case'
         unique_together = ('name', 'module')
     
-
 
 
 
@@ -238,3 +237,17 @@ class ScheduledTask(ComTimeModel, UserEditModel):
         if self.actual_start_time and self.actual_end_time:
             return (self.actual_end_time - self.actual_start_time).total_seconds()
         return None
+
+
+class Report(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255, verbose_name='报告名称')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    report_data = models.JSONField(null=True, verbose_name="测试报告数据")
+    # 外键
+    creater = models.ForeignKey(ExpendUser, on_delete=models.CASCADE, verbose_name='创建者')
+    project = models.ForeignKey(to=Project, verbose_name="关联项目", on_delete=models.PROTECT, null=False, blank=False)
+
+    class Meta:
+        verbose_name = '用例执行报告'
+        db_table = 'case_report'

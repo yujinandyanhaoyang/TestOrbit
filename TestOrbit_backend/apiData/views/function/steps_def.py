@@ -43,7 +43,7 @@ def create_api(step,env_id,case_id):
         source=USER_API,
         env_id=env_id, 
         case_id=case_id,)
-    print(f"创建的 API ID 为：{step.id}")
+    print(f"创建的 step ID 为：{step.id}")
     return step.id
 
 
@@ -81,14 +81,22 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
     print("\n" + "-"*50)
     print("🔍 go_step函数开始执行")
 
-    CaseStep = ApiCaseStep.objects.filter(id=step_id).first()
-    # 初始化step
-    step = {}
-    step['params'] = CaseStep.params if CaseStep else {}
-    step['controller_data'] = CaseStep.controller_data if CaseStep else {}
-    # print(f'当前步骤step_params: {step["params"]}')
-    # 获取步骤类型
-    s_type = CaseStep.type if CaseStep else None
+    # 检查步骤ID是否存在
+    if not step_id:
+        print("⚠️ 步骤ID不存在，无法执行")
+        return {'status': FAILED, 'data': '步骤ID不存在'}
+
+    else:
+        case_step_obj = ApiCaseStep.objects.filter(id=step_id).first()
+        # 初始化step
+        step = {}
+        step['params'] = case_step_obj.params if case_step_obj else {}
+        step['controller_data'] = case_step_obj.controller_data if case_step_obj else {}
+        # 获取步骤类型
+        s_type = case_step_obj.type if case_step_obj else None
+        step['type'] = s_type
+        step['step_name'] = case_step_obj.step_name if case_step_obj else "未命名步骤"
+
 
     # 检查是否需要中断执行
     if actuator_obj.status in (INTERRUPT, FAILED_STOP):
@@ -182,8 +190,9 @@ def go_step(actuator_obj, step_id, i=0, prefix_label='', **extra_params):
 
     # 保存运行结果
     print("💾 保存步骤执行结果到ApiCaseStep.results...")
-    CaseStep.results = res.get('data', {})
-    CaseStep.save()
+    if step_id:
+        # 直接更新数据库中的记录
+        ApiCaseStep.objects.filter(id=step_id).update(results=res.get('data', {}))
 
     print(f"🏁 go_step函数执行完成，返回状态: {res['status']}")
     print("-"*50 + "\n")

@@ -41,14 +41,11 @@ class ApiCaseViews(View):
         
         req_params = request.query_params.dict()
         
-        # step_order查关联接口的时候用
-        # 通过step_order查找步骤
+        # 通过请求参数中的case_id查询关联的步骤信息，如果没有case_id则返回用例组列表
         # 每个具体步骤通过case_id+step_order唯一确定
-        case_id, step_order = req_params.get('id'), req_params.get('step_order')
+        case_id, step_order = req_params.get('case_id'), req_params.get('step_order')
 
         if case_id:  # 有case_id代表请求详情
-
-
             instance = ApiCase.objects.defer('report_data').get(id=case_id)
             context = {'step_order': step_order, 'user_id': request.user.id}
             
@@ -64,7 +61,7 @@ class ApiCaseViews(View):
         
         return self.list(request, *args, **kwargs)
 
-    # 新增用例组方法
+    # 新增&更新用例组方法
     def post(self, request, *args, **kwargs):
         """
         处理用例组的新增和更新，包括所有步骤的保存
@@ -167,48 +164,48 @@ class ApiCaseViews(View):
         request.data.update({'name': api_case_name, 'is_deleted': True, 'updater': request.user.id})
         return self.patch(request, *args, **kwargs)
 
-# 运行整个测试用例组
-@api_view(['POST'])
-def run_api_cases(request):
-    """
-    执行Api测试用例
-    """
-    print("已进入run_api_cases函数，准备运行整个用例组")
-    user_id, envir = request.user.id, request.data['envir']
-    case_data = parse_api_case_steps(request.data['case'])
+# 运行整个测试用例组-已废弃
+# @api_view(['POST'])
+# def run_api_cases(request):
+#     """
+#     执行Api测试用例
+#     """
+#     print("已进入run_api_cases函数，准备运行整个用例组")
+#     user_id, envir = request.user.id, request.data['envir']
+#     case_data = parse_api_case_steps(request.data['case'])
     
-    # 确保步骤失败不会中断后续步骤的执行
-    UserCfg.objects.update_or_create(
-        user_id=user_id, 
-        defaults={
-            'exec_status': RUNNING, 
-            'envir_id': envir,
-            'failed_stop': False  # 明确设置为False，防止步骤失败中断执行
-        }
-    )
+#     # 确保步骤失败不会中断后续步骤的执行
+#     UserCfg.objects.update_or_create(
+#         user_id=user_id, 
+#         defaults={
+#             'exec_status': RUNNING, 
+#             'envir_id': envir,
+#             'failed_stop': False  # 明确设置为False，防止步骤失败中断执行
+#         }
+#     )
     
-    try:
-        print('准备使用run_api_case_func函数')
-        # 确保执行时传入failed_stop=False参数
-        res = run_api_case_func(
-            case_data, 
-            user_id, 
-            cfg_data={
-                'envir_id': request.data['envir'],
-                'failed_stop': False  # 显式设置为False，确保步骤失败不中断执行
-            }
-        )
-        UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
-        # set_user_temp_params(res['params_source'], user_id)
-    except Exception as e:
-        return Response(data={'message': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({'message': "执行完成！"})
+#     try:
+#         print('准备使用run_api_case_func函数')
+#         # 确保执行时传入failed_stop=False参数
+#         res = run_api_case_func(
+#             case_data, 
+#             user_id, 
+#             cfg_data={
+#                 'envir_id': request.data['envir'],
+#                 'failed_stop': False  # 显式设置为False，确保步骤失败不中断执行
+#             }
+#         )
+#         UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
+#         # set_user_temp_params(res['params_source'], user_id)
+#     except Exception as e:
+#         return Response(data={'message': f"执行异常：{str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+#     return Response({'message': "执行完成！"})
 
 
 @api_view(['POST'])
 def batch_run_api_cases(request):
     """
-    批量执行多个Api测试用例，支持并行或串行执行
+    执行多个Api测试用例组，支持并行或串行执行
     """
     batch_params = request.data
     user_id = request.user.id

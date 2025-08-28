@@ -138,8 +138,11 @@ def parse_api_case_steps(case_ids=None, is_step=False):
 """
 执行完成后，写入结果
 """
-def save_results(step_data, case_data):
-    ApiCase.objects.bulk_update(case_data, fields=('status', 'report_data', 'latest_run_time'))
+def save_results(case_data):
+    # 只更新用例的状态和报告数据
+    if case_data:
+        ApiCase.objects.bulk_update(case_data, fields=('status', 'report_data', 'latest_run_time'))
+        print(f'成功更新 {len(case_data)} 个用例的状态和报告数据')
 
 
 
@@ -156,26 +159,38 @@ def run_step_groups(actuator_obj, step_data, prefix_label='', cascader_level=0, 
         step['step_id'] = step.get('id')
         step_id = step.get('id')
         s_type = step['type']
-        print(f'开始执行步骤: {step["step_name"]}，类型: {s_type}')
+        # print(f'开始执行步骤: {step["step_name"]}，类型: {s_type}')
         if step.get('enabled'):
-            
+
             params = {'actuator_obj': actuator_obj, 'step_id': step_id, 'prefix_label': prefix_label,
-                      'i': i}
+                      'i': i}  # 将step传递给go_step
             if s_type in (API_CASE, API_FOREACH):
                 params['cascader_level'] = cascader_level + 1
             # print(f'params:{params}\t')
             res = go_step(**params)
             # print(f'{step["step_name"]}步骤执行结果: {res}')
 
-            # 更新result，但是与当前逻辑不符，待后期扩展调整
-            # step.update(res)
+            # 更新步骤状态和结果
+            step['status'] = res.get('status', WAITING)  # 设置默认值为WAITING
+            if 'data' in res:
+                step['data'] = res['data']
+            if 'results' in res:
+                step['results'] = res['results']
+                
+            print(f"步骤 {step['step_name']} 执行完成，状态: {step['status']}")
         else:
             step['status'] = DISABLED
-        # step.update({'status': res['status'], 'results': res.get('results')})
+            print(f"步骤 {step['step_name']} 被禁用，状态: {step['status']}")
+        
         # 当测试计划状态为通过且步骤状态为失败时，就将计划状态改为失败
         print('\t')
-        if run_status != FAILED and step['status'] == FAILED:
+        if run_status != FAILED and step.get('status') == FAILED:
             run_status = FAILED
+            print(f"由于步骤 {step['step_name']} 失败，整体状态设为失败")
+    
+    # 这里不再在内存中计算成功率，而是等所有步骤执行完毕后从数据库查询
+    print(f"步骤组执行完成 - 总状态: {'成功' if run_status == SUCCESS else '失败'}")
+    
     return run_status, step_data
 
 
@@ -194,72 +209,13 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
     actuator_obj = ApiCasesActuator(user_id, cfg_data=cfg_data, temp_params=temp_params)
     thread = MyThread(target=monitor_interrupt, args=[user_id, actuator_obj])
     thread.start()
-    
-    # 处理不同格式的输入数据
-    if isinstance(case_data, dict):
-        # 传统格式：{case_id: [steps]}
-        for case_id, v in case_data.items():
-            print(f'这是{case_id}号用例')
-            start_time = datetime.datetime.now()
-            case_objs = ApiCase.objects.filter(id=case_id).first()
-            if case_objs:
-                print('标记用例任务执行状态为running')
-                case_objs.status = RUNNING
-                case_objs.save(update_fields=['status'])
-            report_dict = {'envir': actuator_obj.envir, 'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
-                           'steps': []}
-            actuator_obj.base_params_source['case_id'] = case_id
-            # 默认测试是通过的
-            case_status, step_data = run_step_groups(actuator_obj, v)
-            # print('步骤执行结果:', step_data)
 
-            report_dict['steps'] = step_data
-
-            print(f'开始存储用例组{case_id}所有步骤执行的结果\t')
-            for step in step_data:
-                # 过滤掉不属于ApiCaseStep模型的字段
-                valid_fields = {
-                    'id', 'type', 'enabled', 'step_name', 'step_order', 'status', 
-                    'retried_times', 'controller_data', 'params', 'results', 
-                    'timeout', 'source'
-                }
-                filtered_step = {k: v for k, v in step.items() if k in valid_fields}
-                
-                # 将执行结果(data字段)存储到results字段中
-                if 'data' in step and step['data']:
-                    filtered_step['results'] = step['data']
-                
-                # 正确设置外键关系，使用case而不是case_id
-                if 'id' in filtered_step:
-                    # 如果有ID，说明是更新现有记录
-                    step_obj = ApiCaseStep(id=filtered_step['id'])
-                    for field, value in filtered_step.items():
-                        if field != 'id' and field != 'case_id':  # 避免设置case_id字段
-                            setattr(step_obj, field, value)
-                    # 确保case关系正确
-                    step_obj.case_id = case_id
-                    res_step_objs.append(step_obj)
-                else:
-                    # 新记录，直接设置case_id
-                    step_obj = ApiCaseStep(case_id=case_id)
-                    for field, value in filtered_step.items():
-                        if field != 'case_id':  # 避免重复设置case_id
-                            setattr(step_obj, field, value)
-                    res_step_objs.append(step_obj)
-            end_time = datetime.datetime.now()
-            report_dict['spend_time'] = format((end_time - start_time).total_seconds(), '.1f')
-            if actuator_obj.status in (INTERRUPT, FAILED_STOP):
-                case_status = actuator_obj.status
-            res_case_objs.append(
-                ApiCase(id=case_id, status=case_status, latest_run_time=end_time, report_data=report_dict))
-            print(f'已完成{case_id}号用例的执行')
-    
-    elif isinstance(case_data, list) and len(case_data) > 0:
-        # 新格式：直接传入步骤列表（用于批量执行）
+    # 开始执行case_data
+    if isinstance(case_data, list) and len(case_data) > 0:
         first_step = case_data[0] if case_data else {}
         case_id = first_step.get('case_id', 'unknown')
-        
-        print(f'这是{case_id}号用例（批量执行模式）')
+
+        print(f'这是{case_id}号用例,正在执行中...')
         start_time = datetime.datetime.now()
         case_objs = ApiCase.objects.filter(id=case_id).first()
         if case_objs:
@@ -267,13 +223,40 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
             case_objs.status = RUNNING
             case_objs.save(update_fields=['status'])
         
-        report_dict = {'envir': actuator_obj.envir, 'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
-                       'steps': []}
+        report_dict = {
+            'envir': actuator_obj.envir, 
+            'start_time': start_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'steps': []
+        }
         actuator_obj.base_params_source['case_id'] = case_id
         
         # 执行步骤组
         case_status, step_data = run_step_groups(actuator_obj, case_data)
         report_dict['steps'] = step_data
+        
+        # 从数据库中查询该用例的所有步骤的最新状态
+        db_steps = ApiCaseStep.objects.filter(case_id=case_id)
+        total_steps = db_steps.count()
+        enabled_steps = db_steps.filter(enabled=True)
+        enabled_step_count = enabled_steps.count()
+        success_steps = enabled_steps.filter(status=SUCCESS)
+        success_count = success_steps.count()
+        
+        # 计算成功率百分比
+        if enabled_step_count > 0:
+            success_rate = (success_count / enabled_step_count) * 100
+        else:
+            success_rate = 0
+            
+        # 添加统计数据到报告
+        report_dict['statistics'] = {
+            'total_steps': total_steps,
+            'enabled_steps': enabled_step_count,
+            'success_steps': success_count,
+            'success_rate': round(success_rate, 2),  # 保留两位小数
+            'success_rate_str': f"{round(success_rate, 2)}%"  # 带百分号的字符串形式
+        }
+        print(f"步骤成功率(数据库查询): {success_count}/{enabled_step_count} = {round(success_rate, 2)}%")
 
         print(f'开始存储用例组{case_id}所有步骤执行的结果\t')
         for step in step_data:
@@ -308,6 +291,20 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
                         setattr(step_obj, field, value)
                 res_step_objs.append(step_obj)
         
+        # 先保存步骤结果到数据库，以便后续查询统计
+        print('先保存步骤执行结果到数据库...')
+        # 创建一个临时的模型对象列表用于批量更新
+        temp_step_objs = []
+        for step_obj in res_step_objs:
+            if hasattr(step_obj, 'case_id') and step_obj.case_id == case_id:
+                temp_step_objs.append(step_obj)
+        
+        # 如果有步骤结果，立即保存
+        if temp_step_objs:
+            # 使用bulk_update批量更新步骤的状态和结果
+            ApiCaseStep.objects.bulk_update(temp_step_objs, fields=['status', 'results'])
+            print(f'成功保存 {len(temp_step_objs)} 个步骤的执行结果')
+        
         end_time = datetime.datetime.now()
         report_dict['spend_time'] = format((end_time - start_time).total_seconds(), '.1f')
         if actuator_obj.status in (INTERRUPT, FAILED_STOP):
@@ -319,11 +316,28 @@ def run_api_case_func(case_data, user_id, cfg_data=None, temp_params=None):
     else:
         print("警告：未识别的case_data格式或空数据")
         
-    save_results(res_step_objs, res_case_objs)
+    save_results( res_case_objs)
     
     # 确保执行状态设置为WAITING，通知监控线程可以终止
     UserCfg.objects.filter(user_id=user_id).update(exec_status=WAITING)
     
-    # 返回case的报告
-    return {'data': '暂时没想好应该返回什么信息，先占位置'}
-
+    # 构建返回结果
+    result = {
+        'cases': []
+    }
+    
+    # 从数据库中获取最新的用例状态和报告数据
+    for case_obj in res_case_objs:
+        # 获取数据库中最新的用例数据
+        fresh_case = ApiCase.objects.filter(id=case_obj.id).values('id', 'status', 'report_data').first()
+        if fresh_case and fresh_case['report_data'] and 'statistics' in fresh_case['report_data']:
+            result['cases'].append({
+                'id': fresh_case['id'],
+                'status': fresh_case['status'],
+                'statistics': fresh_case['report_data'].get('statistics', {}),
+                'steps': fresh_case['report_data'].get('steps', []),
+                'spend_time': fresh_case['report_data'].get('spend_time', 0)
+            })
+    
+    print('执行完成，返回结果')
+    return result
