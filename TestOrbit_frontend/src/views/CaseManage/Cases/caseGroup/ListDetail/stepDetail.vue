@@ -57,13 +57,13 @@ import { ElMessage } from 'element-plus'
 import ParamCard from './paramCard.vue'
 import ResponseCard from './responseCard.vue'
 import { addCaseStep, runCaseStep } from '@/api/case/caseStep'
-import type { AddCaseStepRequest, HttpMethod, ApiStepParams, HeaderSourceItem, QuerySourceItem } from '@/api/case/caseStep/types'
+import type { CaseStep, AddCaseStepRequest, HttpMethod, ApiStepParams, HeaderSourceItem, QuerySourceItem } from '@/api/case/caseStep/types'
 
 // 定义接收的props
 const props = defineProps<{
   stepId?: number;
   stepName?: string;
-  stepParams?: ApiStepParams;
+  stepParams?: CaseStep;  // 改回 CaseStep，因为现在传递的是完整的 element 对象
 }>();
 
 // 定义emit事件
@@ -90,6 +90,8 @@ const address = ref<string>('') // 默认路径
 const UrlInput = ref<string>('') // 默认主机名
 const method = ref<HttpMethod>() // 默认HTTP方法
 const requestBody = ref<any>({}) // 默认请求体
+const requestHeaders = ref<any>({}) // 默认请求头
+const requestQuery = ref<any>({}) // 默认请求查询参数
 
 // 请求参数配置
 const requestConfig = ref<{
@@ -110,33 +112,51 @@ const requestConfig = ref<{
 
 // 如果有传入的步骤参数，则初始化
 if (props.stepParams) {
-  // console.log('StepDetail接收到的参数:', props.stepParams);
+  // console.log('StepDetail接收到的参数-params:', props.stepParams.params);
   
-  // 更新主机地址
-  if (props.stepParams.host) {
-    UrlInput.value = props.stepParams.host;
+  // 现在stepParams是完整的CaseStep对象，通过.params访问ApiStepParams
+  if (props.stepParams.params) {
+    // console.log('开始初始化参数...');
+    
+    // 更新主机地址
+    if (props.stepParams.params.host) {
+      UrlInput.value = props.stepParams.params.host;
+    }
+    
+    // 更新路径
+    if (props.stepParams.params.path) {
+      address.value = props.stepParams.params.path;
+    }
+    
+    // 更新请求方法
+    if (props.stepParams.params.method) {
+      method.value = props.stepParams.params.method;
+    }
+
+  } else {
+    console.warn('CaseStep对象中没有params属性！');
   }
-  // 更新请求体
-  if (props.stepParams.body_source && Object.keys(props.stepParams.body_source).length > 0) {
-    requestBody.value = props.stepParams.body_source;
-  }
-  
 }
 
 // 监听stepParams变化，更新参数
-watch(() => props.stepParams, (newParams, oldParams) => {
+watch(() => props.stepParams, (newParams) => {
+  // console.log('StepDetail接收到新的stepParams:', newParams);
   
   if (newParams) {
-    // 更新主机
-      UrlInput.value = newParams.host || '';
-    // 更新路径
-      address.value = newParams.path || '';
-    // 更新请求方法  
-      method.value = newParams.method as HttpMethod;
-
-    if (newParams.body_source && Object.keys(newParams.body_source).length > 0) {
-      requestBody.value = newParams.body_source;
-      console.log('已更新请求体:', requestBody.value);
+    
+    // 通过.params访问ApiStepParams的属性
+    if (newParams.params) {
+      // 更新主机
+      UrlInput.value = newParams.params.host || '';
+      
+      // 更新路径
+      address.value = newParams.params.path || '';
+      
+      // 更新请求方法  
+      method.value = newParams.params.method as HttpMethod;
+      
+    } else {
+      console.warn('CaseStep对象中没有params属性！');
     }
   } else {
     console.log('没有接收到stepParams参数');

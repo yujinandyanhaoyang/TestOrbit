@@ -45,8 +45,8 @@
         :is="resolveComponent(item.componentName)"
         v-bind="item.props"
       />
-      <!-- 使用caseDetail组件显示用例详情 -->
-      <CaseDetail 
+      <!-- 使用CaseGroupDetail组件显示用例详情 -->
+      <CaseGroupDetail 
         v-else-if="item.caseId" 
         :caseId="item.caseId" 
       />
@@ -217,11 +217,11 @@ const openTestReport = (reportId: number) => {
 
 /**
  * 打开用例组
- * @param groupId 用例组ID
+ * @param caseId 用例组ID
  */
-const openCaseGroup = (groupId: number) => {
+const openCaseGroup = (caseId: number) => {
   // 使用通用的addTab方法打开用例组
-  addTab('用例组', '', groupId, 'CaseGroupDetail', { groupId })
+  addTab('用例组', '', caseId, 'CaseGroupDetail', { caseId })
 }
 </script>
 

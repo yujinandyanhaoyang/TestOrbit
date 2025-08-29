@@ -28,17 +28,17 @@
                 </el-table-column>
                 <el-table-column
                     prop="username"
-                    label="账号名"
-                    show-overflow-tooltip>
-                </el-table-column>
-                <el-table-column
-                    prop="real_name"
                     label="姓名"
                     show-overflow-tooltip>
                 </el-table-column>
                 <el-table-column
                     prop="email"
                     label="邮箱地址"
+                    show-overflow-tooltip>
+                </el-table-column>
+                <el-table-column
+                    prop="phone"
+                    label="手机号"
                     show-overflow-tooltip>
                 </el-table-column>
                 <el-table-column
@@ -53,6 +53,15 @@
                     show-overflow-tooltip>
                     <template #default="{ row }">
                         {{ row.last_login ? new Date(row.last_login).toLocaleString() : '未登录过' }}
+                    </template>
+                </el-table-column>
+                <el-table-column
+                    label="所属项目组"
+                    show-overflow-tooltip>
+                    <template #default="{ row }">
+                        {{ row.projects.length > 0 
+                           ? row.projects.map((project: { id: number; name: string }) => project.name).join(', ') 
+                           : '未分配' }}
                     </template>
                 </el-table-column>
                 <el-table-column
@@ -99,22 +108,35 @@
         <el-dialog
             v-model="dialogVisible"
             :title="dialogType === 'add' ? '新增用户' : '编辑用户'"
-            width="30%"
+            width="35%"
             :close-on-click-modal="false">
             <el-form :model="userForm" label-width="80px">
-                <el-form-item label="账号名">
-                    <el-input v-model="userForm.username" placeholder="请输入账号名" :disabled="dialogType === 'edit'"></el-input>
-                </el-form-item>
                 <el-form-item label="姓名">
-                    <el-input v-model="userForm.real_name" placeholder="请输入姓名"></el-input>
+                    <el-input v-model="userForm.username" placeholder="请输入姓名" :disabled="dialogType === 'edit'"></el-input>
                 </el-form-item>
                 <el-form-item label="邮箱">
                     <el-input v-model="userForm.email" placeholder="请输入邮箱"></el-input>
                 </el-form-item>
-                
-                <!-- <el-form-item v-if="dialogType === 'add'" label="密码">
+                <el-form-item label="手机号">
+                    <el-input v-model="userForm.phone" placeholder="请输入手机号"></el-input>
+                </el-form-item>
+                <el-form-item v-if="dialogType === 'add'" label="密码">
                     <el-input v-model="userForm.password" type="password" placeholder="请输入密码" show-password></el-input>
-                </el-form-item> -->
+                </el-form-item>
+                <el-form-item v-if="dialogType !== 'add'" label="所属项目">
+                    <el-select
+                      v-model="selectedProjectIds"
+                      multiple
+                      placeholder="请选择所属项目组"
+                      style="width: 100%">
+                      <el-option 
+                        v-for="project in projectOptions" 
+                        :key="project.id" 
+                        :label="project.name" 
+                        :value="project.id">
+                      </el-option>
+                    </el-select>
+                </el-form-item>
             </el-form>
             <template #footer>
                 <span class="dialog-footer">
@@ -131,8 +153,10 @@
 
 <script setup lang="ts">
 import { getUserList,updateUserStatus,updateUserInfo,addUser } from '@/api/user/index'
+import { getProjectList } from '@/api/project/index'
 import { ref, onMounted } from 'vue'
 import type { UserInfo } from '@/api/user/types'
+import type { ProjectInfo } from '@/api/project/types'
 import { ElMessage } from 'element-plus'
 
 
@@ -144,6 +168,12 @@ const totalUsers = ref(0)
 const currentPage = ref(1)
 // 每页显示条数
 const pageSize = ref(10)
+// 项目ID到名称的映射
+const projectMap = ref<Map<number, string>>(new Map())
+// 项目选项列表
+const projectOptions = ref<{id: number, name: string}[]>([])
+// 选中的项目ID列表
+const selectedProjectIds = ref<number[]>([])
 
 // 对话框相关的响应式数据
 const dialogVisible = ref(false)
@@ -153,14 +183,45 @@ const dialogType = ref<'add' | 'edit'>('add')  // 用于区分是新增还是编
 const userForm = ref({
   id: 0,
   username: '',
-  real_name: '',
   email: '',
+  phone: '',
   is_active: true,
-//   password: ''  // 添加密码字段，仅用于新增用户。待后端完善功能
+  password: '',
+  projects: [] // 用户所属项目组
 })
+
+// 获取项目列表并构建映射
+const fetchProjects = async () => {
+  try {
+    const response = await getProjectList(1, 1000) // 获取所有项目，假设不超过1000个
+    
+    if (response.code == 200) {
+      // 清空现有数据
+      projectOptions.value = []
+      
+      // 创建映射和选项列表
+      response.results.data.forEach((project: ProjectInfo) => {
+        // 更新映射
+        projectMap.value.set(project.id, project.name)
+        
+        // 添加到选项列表
+        projectOptions.value.push({
+          id: project.id,
+          name: project.name
+        })
+      })
+    } else {
+      ElMessage.warning('获取项目列表失败，可能无法显示完整的项目名称')
+    }
+  } catch (error) {
+    console.error('获取项目列表失败:', error)
+    ElMessage.warning('获取项目列表失败，可能无法显示完整的项目名称')
+  }
+}
 
 //
 onMounted(() => {
+    fetchProjects()
     fetchUserList(1, 10)  // 初始加载第一页，每页10条数据
 })
 
@@ -177,9 +238,9 @@ const fetchUserList = async (page: number, pageSize: number) => {
         statusLoading: false  // 添加状态加载标志
       }))
       totalUsers.value = response.results.total
+    //   console.log('用户列表:', userList.value)
     } else {
       // 如果后端返回了错误信息
-      
       ElMessage.error(response.msg || '获取用户列表失败')
     }
   } catch (error) {
@@ -207,11 +268,14 @@ const openAddDialog = () => {
     userForm.value = {
         id: 0,
         username: '',
-        real_name: '',
         email: '',
         is_active: true,
-        // password: ''
+        phone: '',
+        password: '',
+        projects: []
     }
+    // 清空选中的项目
+    selectedProjectIds.value = []
     dialogVisible.value = true
 }
 
@@ -222,11 +286,14 @@ const handleEdit = (row: UserInfo) => {
     userForm.value = {
         id: row.id,
         username: row.username,
-        real_name: row.real_name,
         email: row.email,
         is_active: row.is_active,
-        // password: '' // 密码留空，编辑时不修改密码
+        phone: row.phone,
+        password: '', // 密码留空，编辑时不修改密码
+        projects: [] // 不直接使用row.projects，因为格式已更改
     }
+    // 设置选中的项目ID
+    selectedProjectIds.value = row.projects.map(p => p.id)
     dialogVisible.value = true
 }
 
@@ -266,10 +333,6 @@ const updateStatus = async (row: any) => {
 const handleSubmit = async () => {
     // 表单验证
     if (!userForm.value.username.trim()) {
-        ElMessage.warning('账号名不能为空')
-        return
-    }
-    if (!userForm.value.real_name.trim()) {
         ElMessage.warning('姓名不能为空')
         return
     }
@@ -278,11 +341,11 @@ const handleSubmit = async () => {
         return
     }
     
-    // // 如果是新增用户，需要验证密码
-    // if (dialogType.value === 'add' && !userForm.value.password.trim()) {
-    //     ElMessage.warning('密码不能为空')
-    //     return
-    // }
+    // 如果是新增用户，需要验证密码
+    if (dialogType.value === 'add' && !userForm.value.password.trim()) {
+        ElMessage.warning('密码不能为空')
+        return
+    }
     
     try {
         let response
@@ -291,18 +354,20 @@ const handleSubmit = async () => {
             // 新增用户
             response = await addUser({
                 username: userForm.value.username,
-                real_name: userForm.value.real_name,
                 email: userForm.value.email,
-                // password: userForm.value.password,
-                is_active: userForm.value.is_active
+                phone: userForm.value.phone,
+                password: userForm.value.password,
+                is_active: userForm.value.is_active,
+                projects: selectedProjectIds.value // 使用选中的项目ID
             })
         } else {
             // 编辑用户
             response = await updateUserInfo({
                 id: userForm.value.id,
-                real_name: userForm.value.real_name,
                 email: userForm.value.email,
-                is_active: userForm.value.is_active
+                phone: userForm.value.phone,
+                is_active: userForm.value.is_active,
+                projects: selectedProjectIds.value // 使用选中的项目ID
             })
         }
         

@@ -1,7 +1,18 @@
 <template>
   <div class="case-tree-container">
     <div class="header">
-      <h2>场景测试文件</h2>
+      <el-select
+        v-model="selectedProjectId"
+        placeholder="请选择所属项目组"
+        style="width: 100%"
+        clearable>
+        <el-option 
+          v-for="project in projectOptions" 
+          :key="project.id" 
+          :label="project.name" 
+          :value="project.id">
+        </el-option>
+      </el-select>
       <el-button type="primary" size="small" @click="handleAddRoot">添加根目录</el-button>
     </div>
     
@@ -59,12 +70,16 @@
       width="30%"
     >
       <el-form :model="moduleForm" label-width="80px">
-        <el-form-item label="模块名称">
-          <el-input v-model="moduleForm.name" placeholder="请输入模块名称"></el-input>
+        <el-form-item label="所属项目">
+          <el-input v-model="selectedProjectName" disabled></el-input>
         </el-form-item>
         <el-form-item v-if="dialogType === 'add' && moduleForm.parent_id" label="父模块">
           <el-input v-model="parentName" disabled></el-input>
         </el-form-item>
+        <el-form-item label="模块名称">
+          <el-input v-model="moduleForm.name" placeholder="请输入模块名称"></el-input>
+        </el-form-item>
+
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -77,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCaseFolderTree, 
         createTestModule, 
@@ -87,6 +102,16 @@ import { getCaseFolderTree,
 import { convertToElTreeData } from '@/api/case/module/types'
 import type { ElTreeNode, TestModuleNode } from '@/api/case/module/types'
 import { useCaseModuleStore } from '@/store/caseModule'
+import { getProjectList } from '@/api/project/index'
+
+// 当前所处项目组
+// 项目ID到名称的映射
+const projectMap = ref<Map<number, string>>(new Map())
+// 项目选项列表
+const projectOptions = ref<{id: number, name: string}[]>([])
+// 选中的项目ID
+const selectedProjectId = ref<number | null>(null)
+
 
 // 树数据
 const treeData = ref<ElTreeNode[]>([])
@@ -124,11 +149,18 @@ const parentName = computed(() => {
   return findNode(treeData.value)
 })
 
+// 计算当前选中项目的名称
+const selectedProjectName = computed(() => {
+  if (!selectedProjectId.value) return '未选择项目'
+  return projectMap.value.get(selectedProjectId.value) || `项目ID: ${selectedProjectId.value}`
+})
+
 // 加载测试文件树
-const loadTreeData = async () => {
+const loadTreeData = async (projectId?: number) => {
   loading.value = true
   try {
-    const response = await getCaseFolderTree()
+    // 如果有选中的项目ID，则传递给API
+    const response = await getCaseFolderTree(projectId)
     if (response.success) {
       treeData.value = convertToElTreeData(response.results)
     } else {
@@ -191,8 +223,8 @@ const handleDelete = (node: any, data: ElTreeNode) => {
       const response = await deleteTestModule(data.id || '')
       if (response.success) {
         ElMessage.success('删除成功')
-        // 重新加载树
-        loadTreeData()
+        // 重新加载树，使用当前选中的项目ID
+        loadTreeData(selectedProjectId.value || undefined)
       } else {
         ElMessage.error(response.msg || '删除失败')
       }
@@ -211,11 +243,22 @@ const submitModule = async () => {
     ElMessage.warning('模块名称不能为空')
     return
   }
+  
+  // 如果是添加操作且没有选择项目，提示用户
+  if (dialogType.value === 'add' && !selectedProjectId.value) {
+    ElMessage.warning('请先选择一个项目')
+    return
+  }
 
   try {
     let response
     if (dialogType.value === 'add') {
-      response = await createTestModule(moduleForm.value.name, moduleForm.value.parent_id)
+      // 将项目ID一并传递
+      response = await createTestModule(
+        moduleForm.value.name, 
+        moduleForm.value.parent_id,
+        selectedProjectId.value || undefined
+      )
     } else {
       response = await updateTestModule(moduleForm.value.id, moduleForm.value.name)
     }
@@ -224,7 +267,7 @@ const submitModule = async () => {
       ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
       dialogVisible.value = false
       // 重新加载树
-      loadTreeData()
+      loadTreeData(selectedProjectId.value || undefined)
     } else {
       ElMessage.error(response.msg || (dialogType.value === 'add' ? '添加失败' : '更新失败'))
     }
@@ -234,7 +277,49 @@ const submitModule = async () => {
   }
 }
 
+// 获取项目列表
+const fetchProjects = async () => {
+  try {
+    const response = await getProjectList(1, 1000) // 获取所有项目，假设不超过1000个
+    
+    if (response.code == 200) {
+      // 清空现有数据
+      projectOptions.value = []
+      
+      // 创建映射和选项列表
+      response.results.data.forEach((project: any) => {
+        // 更新映射
+        projectMap.value.set(project.id, project.name)
+        
+        // 添加到选项列表
+        projectOptions.value.push({
+          id: project.id,
+          name: project.name
+        })
+      })
+    } else {
+      ElMessage.warning('获取项目列表失败')
+    }
+  } catch (error) {
+    console.error('获取项目列表失败:', error)
+    ElMessage.warning('获取项目列表失败')
+  }
+}
+
+// 监听选中的项目ID变化
+watch(selectedProjectId, (newVal) => {
+  if (newVal !== null) {
+    // 使用选中的项目ID
+    loadTreeData(newVal)
+  } else {
+    // 如果没有选中的项目，则不传项目ID
+    loadTreeData()
+  }
+}, { immediate: false })
+
 onMounted(() => {
+  fetchProjects()
+  // 不传递项目ID，加载默认树或空树
   loadTreeData()
 })
 

@@ -60,7 +60,43 @@ class UserView(View):
                 return Response({'msg': '不允许修改admin账号用户名！'}, status=status.HTTP_400_BAD_REQUEST)
             elif 'is_active' in request.data and not request.data['is_active']:
                 return Response({'msg': '不能禁用admin账号！'}, status=status.HTTP_400_BAD_REQUEST)
-        return self.partial_update(request, *args, **kwargs)
+        
+        # 处理项目分配（支持 projects 和 project_ids 两种字段名）
+        project_ids = request.data.get('projects') or request.data.get('project_ids')
+        if project_ids is not None:
+            # 只有超级管理员可以分配项目
+            if not request.user.is_superuser:
+                return Response({'msg': '权限不足，只有超级管理员可以分配用户项目'}, 
+                               status=status.HTTP_403_FORBIDDEN)
+            
+            user_id = request.data['id']
+            # 从请求数据中移除项目字段，避免影响标准更新
+            request.data.pop('projects', None)
+            request.data.pop('project_ids', None)
+            
+            try:
+                user = ExpendUser.objects.get(id=user_id)
+                # 设置用户的项目（替换现有关联）
+                user.projects.set(project_ids)
+            except ExpendUser.DoesNotExist:
+                return Response({'msg': f'用户ID {user_id} 不存在'}, 
+                               status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({'msg': f'项目分配失败: {str(e)}'}, 
+                               status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 执行标准的用户信息更新
+        response = self.partial_update(request, *args, **kwargs)
+        
+        # 如果用户信息更新成功且包含项目分配，添加项目信息到响应中
+        if response.status_code == 200 and 'project_ids' in locals():
+            user = ExpendUser.objects.get(id=request.data['id'])
+            current_projects = list(user.projects.values('id', 'name'))
+            response.data['current_projects'] = current_projects
+            response.data['project_count'] = len(current_projects)
+            response.data['msg'] = f'用户信息更新成功，已分配 {len(current_projects)} 个项目'
+        
+        return response
 
     def delete(self, request, *args, **kwargs):
         return Response(data={'msg': "禁止删除用户！"}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,52 +152,3 @@ def change_password(request):
     pwd = make_password(request.data['password'])
     ExpendUser.objects.filter(id=request.user.id).update(password=pwd)
     return Response(data={'msg': '修改成功'})
-
-
-@api_view(['POST'])
-@permission_classes((IsAuthenticated,))
-def assign_user_projects(request):
-    """
-    超级管理员分配用户到项目组
-    请求参数:
-    - user_id: 用户ID
-    - project_ids: 项目ID列表 [1, 2, 3]
-    """
-    try:        
-        # 只有超级管理员可以使用此功能
-        if not request.user.is_superuser:
-            return Response({'msg': '权限不足，只有超级管理员可以分配用户项目'}, 
-                           status=status.HTTP_403_FORBIDDEN)
-        
-        user_id = request.data.get('user_id')
-        project_ids = request.data.get('project_ids', [])
-        
-        # 验证必要参数
-        if user_id is None:
-            return Response({'msg': '缺少必要参数: user_id'}, 
-                           status=status.HTTP_400_BAD_REQUEST)
-        
-        # 获取用户对象
-        try:
-            user = ExpendUser.objects.get(id=user_id)
-        except ExpendUser.DoesNotExist:
-            return Response({'msg': f'用户ID {user_id} 不存在'}, 
-                           status=status.HTTP_404_NOT_FOUND)
-        
-        # 直接设置用户的项目（替换现有关联）
-        user.projects.set(project_ids)
-        
-        # 获取更新后的项目列表
-        current_projects = list(user.projects.values('id', 'name'))
-        
-        return Response({
-            'msg': f'成功为用户 {user.username} 分配项目', 
-            'user_id': user_id,
-            'username': user.username,
-            'current_projects': current_projects,
-            'project_count': len(current_projects)
-        })
-        
-    except Exception as e:
-        return Response({'msg': f'操作失败: {str(e)}'}, 
-                       status=status.HTTP_500_INTERNAL_SERVER_ERROR)

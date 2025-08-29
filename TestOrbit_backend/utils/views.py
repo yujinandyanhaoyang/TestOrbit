@@ -82,9 +82,19 @@ class View(mixins.ListModelMixin,
             return self.destroy(request, *args, **kwargs)
 
     def save_related_module(self, req_data, model):
+        """
+        保存与模块相关的数据
+        """
+        print(f"保存与模块相关的数据，数据内容：{req_data}")
+        
+        # 处理外键字段名映射（Django模型中外键字段名与数据库字段名的差异）
+        if 'project_id' in req_data and 'project' not in req_data:
+            req_data['project'] = req_data.pop('project_id')
+            
         serializer = self.get_serializer(data=req_data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        print(f"模块创建成功，ID: {serializer.data['id']}")
         mod_data = dict(serializer.data)
         mod_data['module_related'] = get_module_related(model, mod_data['id'], [])
         model.objects.filter(id=mod_data['id']).update(**mod_data)

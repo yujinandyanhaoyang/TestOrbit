@@ -4,7 +4,7 @@ import request from '@/utils/request'
 
 //引入请求和响应的类型规则
 import type { GetUserInfoResponse,LoginResponse } from './types'
-import { id } from 'element-plus/es/locales.mjs'
+
 
 //API枚举
 enum API {

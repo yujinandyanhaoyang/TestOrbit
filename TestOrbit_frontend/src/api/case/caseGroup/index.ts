@@ -36,7 +36,7 @@ export const addCaseGroup = (data: AddCaseGroupRequest): Promise<AddCaseGroupRes
         data
     )
 }
-// 获取文件下的用例组列表
+// 获取用例模块下的用例组列表
 export const getCaseGroupList = (page:number = 1,page_size:number = 20,is_deleted:boolean = false,  name?:string, module_id?:string): Promise<any> => {
     return request.get(`${API.CASE_GROUP_URL}`, {
         params: {
@@ -66,8 +66,8 @@ export const CopyCaseGroup = (case_id: number): Promise<any> => {
 }
 
 // 获取单个用例组详情信息
-export const getCaseGroupDetail = (group_id: number): Promise<CaseGroupDetailResponse> => {
-    return request.get(`${API.CASE_GROUP_URL}?id=` + group_id)
+export const getCaseGroupDetail = (case_id: number): Promise<CaseGroupDetailResponse> => {
+    return request.get(`${API.CASE_GROUP_URL}?case_id=` + case_id)
 }
 
 

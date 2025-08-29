@@ -20,10 +20,10 @@ class CaseModuleViews(View):
     
     def post(self, request, *args, **kwargs):
         # 检查权限
-        project_id = request.data.get('project')
+        project_id = request.data.get('project_id')
         if not project_id:
             return Response({
-                "msg": "缺少必要参数project",
+                "msg": "缺少必要参数project_id",
                 "code": 400
             }, status=400)
             
@@ -32,7 +32,7 @@ class CaseModuleViews(View):
         )
         if not has_permission:
             return response
-            
+        
         request.data['id'] = get_next_id(ApiCaseModule, 'CaseMod')
         return self.save_related_module(request.data, ApiCaseModule)
 
@@ -88,6 +88,35 @@ class CaseModuleViews(View):
             
         return super().patch(request, *args, **kwargs)
 
+
+    def get(self, request, *args, **kwargs):
+        # 通过module_id查询详细信息
+        module_id = request.query_params.get('id')
+        if not module_id:
+            return Response({
+                "msg": "缺少必要参数id",
+                "code": 400
+            }, status=400)
+        else:
+            # 查询module详情信息
+            try:
+                module = ApiCaseModule.objects.get(id=module_id)
+                return Response({
+                    "data":{
+                        "module_id":module.id,
+                        "name":module.name
+                }})
+            except ApiCaseModule.DoesNotExist:
+                return Response({
+                    "msg": "用例模块不存在",
+                    "code": 404
+                }, status=404)
+
+        
+
+
+
+        
 # 辅助模块
 class ApiModuleViews(View):
     queryset = ApiModule.objects.order_by('created')

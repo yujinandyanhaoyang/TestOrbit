@@ -12,11 +12,13 @@
         multiple: false,
         emitPath: true
       }"
+      style="width: 240px"
       :show-all-levels="true" 
       clearable
       :loading="isLoading"
-      placeholder="请选择所属模块"
+      :placeholder="modulePlaceholder"
       @change="handleModuleChange"
+      @focus="handleFocus"
     >
       <template #empty>
         <div v-if="isLoading" class="loading-text">
@@ -31,8 +33,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted,  watch } from 'vue';
-import { getCaseFolderTree } from '@/api/case/module';
+import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { getCaseFolderTree, getTestModuleDetail } from '@/api/case/module';
 import type { TestModuleNode } from '@/api/case/module/types';
 
 // 定义组件的输入属性
@@ -49,6 +51,14 @@ const emit = defineEmits(['update:moduleValue', 'moduleChange']);
 // 级联选择器的当前值
 const moduleValue = ref<string[]>([]);
 
+// 模块名称（用于显示在placeholder中）
+const moduleName = ref<string>('');
+
+// 模块选择器的placeholder
+const modulePlaceholder = computed(() => {
+  return moduleName.value ? `${moduleName.value}` : '请选择所属模块';
+});
+
 // 监听moduleValue的变化，向父组件发送更新事件
 watch(moduleValue, (newValue) => {
   emit('update:moduleValue', newValue);
@@ -57,6 +67,12 @@ watch(moduleValue, (newValue) => {
   if (newValue && newValue.length > 0) {
     const selectedModuleId = newValue[newValue.length - 1];
     const moduleInfo = findModuleByPath(newValue);
+    
+    // 更新模块名称
+    if (moduleInfo) {
+      moduleName.value = moduleInfo.label;
+    }
+    
     emit('moduleChange', {
       path: newValue,
       moduleId: selectedModuleId,
@@ -64,6 +80,7 @@ watch(moduleValue, (newValue) => {
     });
   } else {
     // 当清空选择时
+    moduleName.value = '';
     emit('moduleChange', {
       path: [],
       moduleId: '',
@@ -72,10 +89,15 @@ watch(moduleValue, (newValue) => {
   }
 }, { deep: true });
 
-// 监听props.moduleId，当外部传入moduleId变化时更新选择器
-watch(() => props.moduleId, async (newValue) => {
-  if (newValue && options.value.length > 0) {
-    await findAndSetModulePath(newValue);
+// 监听props.moduleId，当外部传入moduleId变化时获取名称并更新选择器
+watch(() => props.moduleId, async (newValue, oldValue) => {
+  // console.log(`moduleId变化: ${oldValue} -> ${newValue}`);
+  if (newValue) {
+    await loadModuleNameById(newValue);
+  } else {
+    // 如果moduleId被清空，也要清空选择和名称
+    moduleValue.value = [];
+    moduleName.value = '';
   }
 }, { immediate: true });
 
@@ -92,17 +114,56 @@ const options = ref<CascaderOption[]>([]);
 // 加载状态
 const isLoading = ref(false);
 
-onMounted(() => {
-  // 初始化时获取用例组所属模块数据
-  // console.log('模块选择组件已挂载，正在获取模块数据...');
-  fetchCaseFolderTree();
+// 是否已加载模块树
+const hasLoadedModuleTree = ref(false);
+
+onMounted(async () => {
+  // 如果有初始moduleId，立即获取模块名称
+  if (props.moduleId) {
+    await loadModuleNameById(props.moduleId);
+  }
 });
 
 /**
+ * 根据模块ID加载模块名称
+ */
+const loadModuleNameById = async (moduleId: string) => {
+  isLoading.value = true;
+  try {
+    // console.log('正在获取模块详情，ID:', moduleId);
+    const response = await getTestModuleDetail(moduleId);
+    
+    if (response.code === 200 && response.success) {
+      // console.log('获取到模块名称:', response.results.data.name);
+      moduleName.value = response.results.data.name;
+      
+      // 如果没有预选模块路径，则直接使用模块ID
+      if (!moduleValue.value || moduleValue.value.length === 0) {
+        moduleValue.value = [moduleId];
+      }
+    } else {
+      console.warn('获取模块详情失败:', response.msg);
+    }
+  } catch (error) {
+    console.error('获取模块详情失败:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+/**
+ * 处理级联选择器获得焦点事件
+ * 只有在第一次点击时加载模块树数据，避免不必要的请求
+ */
+const handleFocus = async () => {
+  if (!hasLoadedModuleTree.value) {
+    await fetchCaseFolderTree();
+    hasLoadedModuleTree.value = true;
+  }
+};
+
+/**
  * 将API返回的模块树转换为级联选择器所需的格式
- * @param moduleNodes 后端返回的模块节点数组
- * @param depth 当前深度，用于调试
- * @returns 适用于级联选择器的选项数组
  */
 function transformToCascaderOptions(moduleNodes: TestModuleNode[], depth: number = 0): CascaderOption[] {
   return moduleNodes.map(node => {
@@ -121,7 +182,9 @@ function transformToCascaderOptions(moduleNodes: TestModuleNode[], depth: number
   });
 }
 
-// 获取用例组所属模块数据
+/**
+ * 获取用例组所属模块数据
+ */
 const fetchCaseFolderTree = async () => {
   // 设置加载状态
   isLoading.value = true;
@@ -131,14 +194,18 @@ const fetchCaseFolderTree = async () => {
     
     if (response && response.code === 200) {
       if (response.results && response.results.length > 0) {
-        // 使用响应式API更新options
         // 转换为级联选择器需要的格式
         const cascaderOptions = transformToCascaderOptions(response.results);
         options.value = cascaderOptions;
         
-        // 如果有初始moduleId，尝试设置级联路径
-        if (props.moduleId) {
-          await findAndSetModulePath(props.moduleId);
+        // 如果有moduleId并且已经有模块名称，尝试找到完整路径
+        if (props.moduleId && moduleName.value) {
+          // 尝试在模块树中找到路径
+          const path = findModulePath(props.moduleId);
+          if (path) {
+            console.log('在模块树中找到路径:', path);
+            moduleValue.value = path;
+          }
         }
       } else {
         console.warn('模块数据为空');
@@ -155,7 +222,9 @@ const fetchCaseFolderTree = async () => {
   }
 }
 
-// 处理模块选择变更
+/**
+ * 处理模块选择变更
+ */
 const handleModuleChange = (value: string[]) => {
   console.log('选择的模块ID路径:', value);
   
@@ -166,13 +235,19 @@ const handleModuleChange = (value: string[]) => {
     
     // 根据路径查找完整的模块信息
     const moduleInfo = findModuleByPath(value);
-    console.log('选中的完整模块信息:', moduleInfo);
+    if (moduleInfo) {
+      moduleName.value = moduleInfo.label;
+    }
+    console.log('选中的模块名称:', moduleName.value);
   } else {
     console.log('清空了模块选择');
+    moduleName.value = '';
   }
 };
 
-// 根据路径查找模块信息
+/**
+ * 根据路径查找模块信息
+ */
 const findModuleByPath = (path: string[]): CascaderOption | null => {
   if (!path || path.length === 0) return null;
   
@@ -200,30 +275,7 @@ const findModuleByPath = (path: string[]): CascaderOption | null => {
 };
 
 /**
- * 分析级联选择器树的最大深度
- * @param options 级联选择器选项
- * @param currentDepth 当前深度
- * @returns 树的最大深度
- */
-const analyzeTreeDepth = (options: CascaderOption[], currentDepth: number = 1): number => {
-  if (!options || options.length === 0) return 0;
-  
-  let maxDepth = currentDepth;
-  
-  for (const option of options) {
-    if (option.children && option.children.length > 0) {
-      const childDepth = analyzeTreeDepth(option.children, currentDepth + 1);
-      maxDepth = Math.max(maxDepth, childDepth);
-    }
-  }
-  
-  return maxDepth;
-};
-
-/**
  * 根据模块ID查找级联选择器路径
- * @param moduleId 要查找的模块ID
- * @returns 查找到的模块路径(数组形式)
  */
 const findModulePath = (moduleId: string, currentOptions: CascaderOption[] = options.value, currentPath: string[] = []): string[] | null => {
   if (!moduleId || !currentOptions || currentOptions.length === 0) return null;
@@ -245,43 +297,13 @@ const findModulePath = (moduleId: string, currentOptions: CascaderOption[] = opt
   
   return null;
 };
-
-/**
- * 查找并设置模块路径
- * 这个函数会尝试根据moduleId找到级联选择器的路径并设置选择器的值
- */
-const findAndSetModulePath = async (moduleId: string) => {
-  // 确保选项已加载
-  if (options.value.length === 0) {
-    await fetchCaseFolderTree();
-  }
-  
-  // 查找模块路径
-  const path = findModulePath(moduleId);
-  if (path) {
-    moduleValue.value = path;
-    // console.log('已设置模块路径:', path);
-  } else {
-    console.warn(`未找到模块ID为 ${moduleId} 的路径`);
-    // 如果只有moduleId但找不到路径，可以设置单值
-    if (moduleId) {
-      moduleValue.value = [moduleId];
-    }
-  }
-};
 </script>
 
 <style scoped lang="scss">
 /* 级联选择器中的加载和空数据样式 */
-.loading-text {
+.loading-text, .empty-text {
   padding: 10px;
-  color: #909399;
-  text-align: center;
-}
-
-.empty-text {
-  padding: 10px;
-  color: #909399;
+  color: #18191a;
   text-align: center;
 }
 </style>

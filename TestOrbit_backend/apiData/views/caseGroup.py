@@ -41,12 +41,11 @@ class ApiCaseViews(View):
         
         req_params = request.query_params.dict()
         
-        # 通过请求参数中的case_id查询关联的步骤信息，如果没有case_id则返回用例组列表
-        # 每个具体步骤通过case_id+step_order唯一确定
+        # 通过case_id获取所有关联step信息
         case_id, step_order = req_params.get('case_id'), req_params.get('step_order')
 
         if case_id:  # 有case_id代表请求详情
-            instance = ApiCase.objects.defer('report_data').get(id=case_id)
+            instance = ApiCase.objects.get(id=case_id)
             context = {'step_order': step_order, 'user_id': request.user.id}
             
             serializer = ApiCaseDetailSerializer(instance, context=context)

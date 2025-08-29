@@ -91,7 +91,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { Delete, Plus, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
@@ -103,11 +103,29 @@ interface queryItem {
   enabled: boolean;
 }
 
+// 定义接收的props
+const props = defineProps<{
+  requestQuery?: Record<string, string>;
+}>();
+
 // 创建事件
 const emit = defineEmits(['update:querys']);
 
 // 初始化query数据
 const querys = ref<queryItem[]>([]);
+
+// 监听props变化
+watch(() => props.requestQuery, (newQuery: Record<string, string> | undefined) => {
+  if (newQuery && Object.keys(newQuery).length > 0) {
+    console.log('Query组件接收到新的查询参数:', newQuery);
+    querys.value = Object.entries(newQuery).map(([key, value]) => ({
+      key,
+      value: String(value), // 确保value是字符串类型
+      remark: '',
+      enabled: true,
+    }));
+  }
+}, { immediate: true });
 
 // 批量编辑相关
 const showBulkEditDialog = ref(false);

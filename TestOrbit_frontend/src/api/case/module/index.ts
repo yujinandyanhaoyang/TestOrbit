@@ -14,9 +14,19 @@ enum API {
 
 /**
  * 获取场景测试文件树
+ * @param projectId 可选的项目ID
  * @returns 场景测试文件树结构
  */
-export const getCaseFolderTree = (): Promise<TestModuleTreeResponse> => {
+export const getCaseFolderTree = (projectId?: number): Promise<TestModuleTreeResponse> => {
+    // 如果提供了项目ID，则使用它
+    if (projectId !== undefined) {
+        return request.get(API.CASE_MODULE_TREE, { 
+            params: { 
+                project_id: projectId 
+            } 
+        })
+    }
+    // 否则不传项目ID参数
     return request.get(API.CASE_MODULE_TREE)
 }
 
@@ -24,10 +34,11 @@ export const getCaseFolderTree = (): Promise<TestModuleTreeResponse> => {
  * 创建测试模块
  * @param name 模块名称
  * @param parent_id 父模块ID，顶级模块传null
+ * @param projectId 项目ID
  * @returns 创建结果
  */
-export const createTestModule = (name: string, parent?: string | null): Promise<any> => {
-    return request.post(API.CASEFOLDER_MODULE, { name, parent })
+export const createTestModule = (name: string, parent?: string | null, projectId?: number): Promise<any> => {
+    return request.post(API.CASEFOLDER_MODULE, { name, parent, project_id: projectId })
 }
 
 /**
@@ -47,4 +58,13 @@ export const updateTestModule = (id: string, name: string): Promise<any> => {
  */
 export const deleteTestModule = (id: string): Promise<any> => {
     return request.delete(API.CASEFOLDER_MODULE, { params: { id } })
+}
+
+/**
+ * 通过module_id获取模块详情
+ * @param id 模块ID
+ * @returns 模块详情
+ */
+export const getTestModuleDetail = (id: string): Promise<any> => {
+    return request.get(API.CASEFOLDER_MODULE, { params: { id } })
 }

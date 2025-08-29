@@ -25,17 +25,18 @@ def check_project_permission(user, project_id, operation=None, return_response=F
                 - has_permission: 是否有权限
                 - response: 如无权限，返回Response对象；如有权限，返回None
     """
+    print('开始检查权限')
     # 如果是超级管理员，有所有权限
     if user.is_superuser:
         return (True, None) if return_response else True
         
     # 如果不是超级管理员，检查是否与项目有关联
     from user.models import UserProjectRelation
+    print('不是超级管理员，检查项目关联')
     has_permission = UserProjectRelation.objects.filter(
         user=user,
         project_id=project_id
     ).exists()
-    
     # 根据return_response参数决定返回方式
     if not return_response:
         return has_permission

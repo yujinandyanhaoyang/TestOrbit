@@ -91,7 +91,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref,  onMounted } from 'vue';
+import { ref,  onMounted, watch } from 'vue';
 import { Delete, Plus, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
@@ -103,11 +103,32 @@ interface HeaderItem {
   enabled: boolean;
 }
 
+// 定义接收的props
+const props = defineProps<{
+  requestHeaders: Record<string, string>;
+}>();
+
 // 创建事件
 const emit = defineEmits(['update:headers']);
 
 // 初始化header数据
 const headers = ref<HeaderItem[]>([]);
+
+// 监听props变化
+watch(() => props.requestHeaders, (newHeaders) => {
+  console.log('Header组件接收到新的请求头:', newHeaders);
+  if (newHeaders && Object.keys(newHeaders).length > 0) {
+    headers.value = Object.entries(newHeaders).map(([key, value]) => ({
+      key,
+      value,
+      remark: '',
+      enabled: true,
+    }));
+    console.log('Header组件转换后的headers数据:', headers.value);
+  } else {
+    console.log('Header组件没有接收到有效的请求头数据');
+  }
+}, { immediate: true });
 
 // 批量编辑相关
 const showBulkEditDialog = ref(false);

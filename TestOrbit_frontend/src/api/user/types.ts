@@ -29,12 +29,13 @@ export interface UserInfo {
   first_name: string;
   last_name: string;
   email: string;
+  phone: string;
   is_staff: boolean;
   is_active: boolean;
   date_joined: string; // ISO 8601 格式时间字符串
-  real_name: string;
   groups: any[]; // 此处可根据实际数据类型细化，如 Group[]
   user_permissions: any[]; // 此处可根据实际数据类型细化，如 Permission[]
+  projects: { id: number; name: string }[]
 }
 
 // 用户列表数据结构

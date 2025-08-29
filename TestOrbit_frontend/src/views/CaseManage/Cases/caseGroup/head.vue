@@ -42,6 +42,7 @@
 import { ref, reactive, onMounted,watch } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { addCaseGroup } from '@/api/case/caseGroup';
+import { getTestModuleDetail } from '@/api/case/module';
 
 // 定义组件可以发射的事件
 const emit = defineEmits(['add-step', 'save-order', 'get-steps-data']);
@@ -77,8 +78,33 @@ const formData = reactive({
   id: props.moduleId || '',
   groupName: props.caseName || '',
   module_id: props.moduleId || '',
-  module: []  // 由ModulePath组件控制
+  module: [] as string[],  // 由ModulePath组件控制，期望是字符串数组
+  moduleName: '' // 存储模块名称
 });
+
+// 用于加载模块详情的函数
+const loadModuleDetail = async (moduleId: string) => {
+  if (!moduleId) return;
+  
+  try {
+    const response = await getTestModuleDetail(moduleId);
+    if (response.code === 200 && response.success) {
+      // 更新模块名称
+      formData.moduleName = response.results.data.name;
+      // console.log('获取到模块名称:', formData.moduleName);
+      
+      // ModulePath组件预期接收字符串数组，而不是对象数组
+      // 这里只设置module_id，实际路径由ModulePath组件内部的findAndSetModulePath处理
+      formData.module = [moduleId];
+      
+      // console.log(`已加载模块(ID: ${moduleId})的详情，名称: ${formData.moduleName}`);
+    } else {
+      console.warn('获取模块详情失败:', response.msg);
+    }
+  } catch (error) {
+    console.error('加载模块详情出错:', error);
+  }
+};
 
 // 监听props变化，更新表单数据
 watch(() => props.caseName, (newValue) => {
@@ -87,11 +113,18 @@ watch(() => props.caseName, (newValue) => {
   }
 }, { immediate: true });
 
+// 监听moduleId变化，获取模块详情
+watch(() => props.moduleId, (newModuleId) => {
+  if (newModuleId) {
+    loadModuleDetail(newModuleId);
+  }
+}, { immediate: true });
+
 // 处理模块选择变更事件
 const handleModuleChangeEvent = (data: { path: string[], moduleId: string, moduleInfo: any }) => {
   // 更新formData中的module_id
   formData.module_id = data.moduleId;
-  console.log('模块选择已更新:', data);
+  // console.log('模块选择已更新:', data);
 };
 
 // 使用两个独立的布尔变量来控制对话框显示

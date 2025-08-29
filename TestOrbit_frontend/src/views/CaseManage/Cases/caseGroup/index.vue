@@ -15,14 +15,14 @@
         <div class="case-group">
             <ListDetail 
                 ref="listDetailRef" 
-                :groupId="props.groupId"
+                :caseId="props.caseId"
                 :steps-data="caseGroupData?.steps" 
             />
         </div>
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import Head from './head.vue';
 import ListDetail from './ListDetail/index.vue';
@@ -30,36 +30,34 @@ import { getCaseGroupDetail } from '@/api/case/caseGroup'
 import { ElMessage } from 'element-plus'
 
 // 定义组件接收的props
-const props = defineProps({
-  groupId: {
-    type: Number,
-  }
-})
+const props = defineProps<{
+  caseId?: number
+}>()
 
 // 引用ListDetail组件实例
-const listDetailRef = ref(null);
+const listDetailRef = ref<any>(null);
 // 用于存储用例组详情数据
-const caseGroupData = ref(null);
+const caseGroupData = ref<any>(null);
 // 加载状态
 const loading = ref(false);
 
 // 获取用例组详情的通用方法
-const fetchCaseGroupData = async (groupId) => {
-    if (!groupId) return;
+const fetchCaseGroupData = async (case_id: number) => {
+    if (!case_id) return;
     
     loading.value = true;
     try {
-        console.log('(caseGroup/index)正在获取用例组详情，ID:', groupId);
+        // console.log('(caseGroup/index)正在获取用例组详情，ID:', case_id);
         // 获取用例组详情，使用await等待异步操作完成
-        const response = await getCaseGroupDetail(groupId);
+        const response = await getCaseGroupDetail(case_id);
         
         if (response.code === 200) {
             // 保存用例组详情数据
             caseGroupData.value = response.results;
-            console.log('用例组详情加载成功:', response.results);
+            // console.log('用例组详情加载成功:', response.results);
             
             // 调用ListDetail组件的setCaseGroupDetail方法
-            if (listDetailRef.value ) {
+            if (listDetailRef.value) {
               console.log('调用ListDetail组件的setCaseGroupDetail方法');
               listDetailRef.value.setCaseGroupDetail(response);
             } else {
@@ -67,7 +65,7 @@ const fetchCaseGroupData = async (groupId) => {
             }
             ElMessage.success(`成功加载用例组: ${response.results.name}`);
         } else {
-            ElMessage.error(response.msg || `加载用例组 #${groupId} 详情失败`);
+            ElMessage.error(response.msg || `加载用例组 #${case_id} 详情失败`);
         }
     } catch (error) {
         console.error("获取用例组详情失败:", error);
@@ -78,15 +76,17 @@ const fetchCaseGroupData = async (groupId) => {
 };
 
 onMounted(async () => {
-    // 使用props中的groupId获取数据
-    await fetchCaseGroupData(props.groupId);
+    // 使用props中的caseId获取数据
+    if (props.caseId) {
+        await fetchCaseGroupData(props.caseId);
+    }
 });
 
-// 监听groupId的变化，当从外部传入新的groupId时重新获取数据
-watch(() => props.groupId, async (newGroupId) => {
-    if (newGroupId) {
-        console.log('检测到groupId变化，重新加载数据:', newGroupId);
-        await fetchCaseGroupData(newGroupId);
+// 监听caseId的变化，当从外部传入新的caseId时重新获取数据
+watch(() => props.caseId, async (newCaseId) => {
+    if (newCaseId) {
+        console.log('检测到caseId变化，重新加载数据:', newCaseId);
+        await fetchCaseGroupData(newCaseId);
     }
 });
 

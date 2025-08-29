@@ -1,19 +1,24 @@
 <template>
   <el-tabs type="border-card" class="demo-tabs">
     <el-tab-pane label="Header">
-        <Header @update:headers="updateHeaders" />
+        <Header 
+        :requestHeaders="requestHeaders"
+        @update:headers="updateHeaders" />
     </el-tab-pane>
     <el-tab-pane label="Query">
-      <Query @update:querys="updateQuerys" />
+      <Query :requestQuery="requestQuery" @update:querys="updateQuerys" />
     </el-tab-pane>
     <el-tab-pane label="Body">
-      <Body @update:body="updateBody" @update:contentType="updateContentType" />
+      <Body :requestBody="requestBody" @update:body="updateBody" @update:contentType="updateContentType" />
     </el-tab-pane>
     <el-tab-pane label="前置处理器">
       <BeforeProcessor @update:beforeScript="updateBeforeScript" />
     </el-tab-pane>
     <el-tab-pane label="后置处理器">
       <AfterProcessor @update:afterScript="updateAfterScript" />
+    </el-tab-pane>
+    <el-tab-pane label="断言">
+      <Assert @update:assert="updateAssert" />
     </el-tab-pane>
   </el-tabs>
 </template>
@@ -26,15 +31,21 @@ import Query from './requestComponet/Query.vue'
 import Body from './requestComponet/Body.vue'
 import BeforeProcessor from './requestComponet/BeforeProcessor.vue'
 import AfterProcessor from './requestComponet/AfterProcessor.vue'
-import type { HeaderSourceItem, QuerySourceItem, ApiStepParams } from '@/api/case/caseStep/types';
+import Assert from './requestComponet/Assert.vue'
 
-// 定义props
+import type { HeaderSourceItem, QuerySourceItem, ApiStepParams, CaseStep } from '@/api/case/caseStep/types';
+
+// 定义接收的props
 const props = defineProps<{
-  stepParams?: ApiStepParams;
-}>();
+  stepParams?: CaseStep;
+}>(); 
 
 // 定义事件
 const emit = defineEmits(['update:requestConfig']);
+
+const requestBody = ref<any>({}) // 默认请求体
+const requestHeaders = ref<Record<string, string>>({}) // 默认请求头
+const requestQuery = ref<Record<string, string>>({}) // 默认请求查询参数
 
 // 请求配置数据
 const requestConfig = ref({
@@ -62,21 +73,74 @@ watch(() => props.stepParams, (newParams) => {
 }, { deep: true });
 
 // 初始化请求配置
-const initRequestConfig = (params: ApiStepParams) => {
-  if (params.header_source) {
-    requestConfig.value.headers = params.header_source;
-  }
-  if (params.query_source) {
-    requestConfig.value.querys = params.query_source;
-  }
-  if (params.body_source) {
-    requestConfig.value.body = params.body_source;
-  }
-  if (params.before_script) {
-    requestConfig.value.beforeScript = params.before_script;
-  }
-  if (params.after_script) {
-    requestConfig.value.afterScript = params.after_script;
+const initRequestConfig = (caseStep: CaseStep) => {
+  // console.log('初始化请求配置，解析步骤数据:', caseStep);
+  
+  // CaseStep 对象包含 params 字段，它是 ApiStepParams 类型
+  if (caseStep.params) {
+    console.log('处理步骤参数:', caseStep.params);
+    
+    // 处理请求头 - 转换为Header组件期望的格式
+    if (caseStep.params.header_source && Array.isArray(caseStep.params.header_source)) {
+      // 转换ExtendedHeaderParam为Record<string, string>格式
+      const headersObj: Record<string, string> = {};
+      caseStep.params.header_source.forEach(header => {
+        headersObj[header.name] = header.value;
+      });
+      requestHeaders.value = headersObj;
+      console.log('设置headers为Record格式:', requestHeaders.value);
+      console.log('requestHeaders.value的类型:', typeof requestHeaders.value);
+      console.log('requestHeaders.value的keys:', Object.keys(requestHeaders.value));
+    } else {
+      console.log('没有header_source数据或格式不正确');
+      // 设置为空对象，确保有默认值
+      requestHeaders.value = {};
+    }
+    
+    // 处理查询参数 - 转换为Query组件期望的格式
+    if (caseStep.params.query_source && Array.isArray(caseStep.params.query_source)) {
+      // 转换ExtendedQueryParam为Record<string, string>格式
+      const queryObj: Record<string, string> = {};
+      caseStep.params.query_source.forEach(query => {
+        queryObj[query.name] = query.value;
+      });
+      requestQuery.value = queryObj;
+      console.log('设置querys为Record格式:', requestQuery.value);
+      console.log('requestQuery.value的类型:', typeof requestQuery.value);
+      console.log('requestQuery.value的keys:', Object.keys(requestQuery.value));
+    } else {
+      console.log('没有query_source数据或格式不正确');
+      // 设置为空对象，确保有默认值
+      requestQuery.value = {};
+    }
+    
+    // 处理请求体
+    if (caseStep.params.body_source) {
+      requestBody.value = caseStep.params.body_source;
+      console.log('设置body:', caseStep.params.body_source);
+      console.log('requestBody.value的类型:', typeof requestBody.value);
+    } else {
+      console.log('没有body_source数据');
+      requestBody.value = {};
+    }
+    
+    // 处理前置处理器脚本
+    // 注意：before_script 可能不在 ApiStepParams 类型定义中，但实际数据可能有此字段
+    if ('before_script' in caseStep.params) {
+      // 使用类型断言访问可能不在类型定义中的字段
+      const beforeScript = (caseStep.params as any).before_script;
+      requestConfig.value.beforeScript = beforeScript;
+      console.log('设置beforeScript:', beforeScript);
+    }
+    
+    // 处理后置处理器脚本
+    if ('after_script' in caseStep.params) {
+      const afterScript = (caseStep.params as any).after_script;
+      requestConfig.value.afterScript = afterScript;
+      console.log('设置afterScript:', afterScript);
+    }
+  } else {
+    console.warn('步骤参数中没有找到params字段:', caseStep);
   }
   
   // 通知子组件更新
@@ -131,6 +195,11 @@ const updateBeforeScript = (script: string) => {
 const updateAfterScript = (script: string) => {
   requestConfig.value.afterScript = script;
   emitUpdate();
+};
+
+// 更新断言
+const updateAssert = (assert: string) => {
+  alert("待更新")
 };
 
 // 向父组件发送更新

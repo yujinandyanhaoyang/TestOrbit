@@ -60,6 +60,11 @@ import { ref, watch, onMounted} from 'vue';
 import { Document } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 
+// 定义接收的props
+const props = defineProps<{
+  requestBody?: any;
+}>();
+
 // 定义事件
 const emit = defineEmits(['update:body', 'update:contentType']);
 
@@ -71,6 +76,21 @@ const jsonContent = ref('{}');
 const isValidJson = ref(true);
 // JSON错误信息
 const jsonError = ref('');
+
+// 监听props变化，初始化请求体内容
+watch(() => props.requestBody, (newBody) => {
+  if (newBody && Object.keys(newBody).length > 0) {
+    console.log('Body组件接收到新的请求体:', newBody);
+    try {
+      jsonContent.value = JSON.stringify(newBody, null, 2);
+      isValidJson.value = true;
+      jsonError.value = '';
+    } catch (error) {
+      console.error('请求体JSON序列化失败:', error);
+      jsonContent.value = String(newBody);
+    }
+  }
+}, { immediate: true });
 
 // 监听内容类型变化
 const onContentTypeChange = (type: string) => {
