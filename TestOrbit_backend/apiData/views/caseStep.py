@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from apiData.models import ApiCase,  ApiCaseStep, ApiForeachStep
 from apiData.serializers import ApiCaseListSerializer, ApiDataListSerializer
-from apiData.views.function.viewDef import  parse_api_case_steps, run_api_case_func, ApiCasesActuator, go_step, monitor_interrupt
+from apiData.views.function.viewDef import  ApiCasesActuator
 from utils.comDef import MyThread
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING,  WAITING
 from utils.diyException import CaseCascaderLevelError
@@ -19,7 +19,8 @@ from user.models import UserCfg
 import json
 
 # 功能函数切分保存位置,变更到其他位置
-from .function.steps_def import save_step
+from .function.steps_def import save_step,go_step
+from .function.monitor_def import monitor_interrupt
 
 
 """

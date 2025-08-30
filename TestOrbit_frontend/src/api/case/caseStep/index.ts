@@ -1,7 +1,7 @@
 // 场景测试相关API接口
 // 引入二次封装的请求方法
 import request from '@/utils/request'
-import type { GlobalVarListResponse } from '@/api/case/caseStep/types';
+import type { GlobalVarListResponse,AddCaseStepRequest } from '@/api/case/caseStep/types';
 
 
 // API枚举
@@ -10,7 +10,7 @@ enum API {
     // 步骤接口
     CASE_GROUP_STEP_URL = '/api-data/api-view',
     // 运行单步测试用例
-    CASE_GROUP_STEP_RUN_URL = '/api-data/test-api-data',
+    CASE_GROUP_STEP_RUN_URL = '/api-data/steps/run',
 
     // 变量相关接口
     // 全局变量
@@ -20,17 +20,17 @@ enum API {
 
 // 用例步骤相关接口
 // 添加新步骤
-export const addCaseStep = (data:any): Promise<any> => {
+export const addCaseStep = (data:AddCaseStepRequest): Promise<any> => {
     return request.post(
         API.CASE_GROUP_STEP_URL,
         data
     )
 }
 // 运行单步骤
-export const runCaseStep = (data:any) : Promise<any> => {
+export const runCaseStep = (step_id : number) : Promise<any> => {
     return request.post(
         API.CASE_GROUP_STEP_RUN_URL,
-        data
+        { step_id }
     )
 }
 

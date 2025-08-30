@@ -39,8 +39,8 @@
         <!--请求参数配置卡片(Headers, Query Params, Body（目前规定仅支持json）, 前置脚本，后置脚本)-->
         <div class="center">
           <ParamCard 
-            :step-params="props.stepParams" 
-            @update:requestConfig="updateRequestConfig" 
+            :stepParams="props.stepParams" 
+            @newstep="updateRequestConfig" 
           />
         </div>
         <!--结果卡片（运行结果、控制台打印详情、请求详情、参数提取详情）-->
@@ -57,7 +57,7 @@ import { ElMessage } from 'element-plus'
 import ParamCard from './paramCard.vue'
 import ResponseCard from './responseCard.vue'
 import { addCaseStep, runCaseStep } from '@/api/case/caseStep'
-import type { CaseStep, AddCaseStepRequest, HttpMethod, ApiStepParams, HeaderSourceItem, QuerySourceItem } from '@/api/case/caseStep/types'
+import type { CaseStep, AddCaseStepRequest, HttpMethod, HeaderSourceItem, QuerySourceItem, Rule } from '@/api/case/caseStep/types'
 
 // 定义接收的props
 const props = defineProps<{
@@ -89,54 +89,15 @@ watch(
 const address = ref<string>('') // 默认路径
 const UrlInput = ref<string>('') // 默认主机名
 const method = ref<HttpMethod>() // 默认HTTP方法
-const requestBody = ref<any>({}) // 默认请求体
-const requestHeaders = ref<any>({}) // 默认请求头
-const requestQuery = ref<any>({}) // 默认请求查询参数
+const step = ref<CaseStep>() // 步骤参数
 
 // 请求参数配置
-const requestConfig = ref<{
-  headers: HeaderSourceItem[];
-  querys: QuerySourceItem[];
-  body: any;
-  contentType: string;
-  beforeScript: string;
-  afterScript: string;
-}>({
-  headers: [],
-  querys: [],
-  body: {},
-  contentType: 'application/json',
-  beforeScript: '',
-  afterScript: ''
-});
+const requestConfig = ref<AddCaseStepRequest>({
+  case_id: 0, // 初始化为不存在数据
+  env_id: 0, // 初始化为不存在数据
+  steps: []
+})
 
-// 如果有传入的步骤参数，则初始化
-if (props.stepParams) {
-  // console.log('StepDetail接收到的参数-params:', props.stepParams.params);
-  
-  // 现在stepParams是完整的CaseStep对象，通过.params访问ApiStepParams
-  if (props.stepParams.params) {
-    // console.log('开始初始化参数...');
-    
-    // 更新主机地址
-    if (props.stepParams.params.host) {
-      UrlInput.value = props.stepParams.params.host;
-    }
-    
-    // 更新路径
-    if (props.stepParams.params.path) {
-      address.value = props.stepParams.params.path;
-    }
-    
-    // 更新请求方法
-    if (props.stepParams.params.method) {
-      method.value = props.stepParams.params.method;
-    }
-
-  } else {
-    console.warn('CaseStep对象中没有params属性！');
-  }
-}
 
 // 监听stepParams变化，更新参数
 watch(() => props.stepParams, (newParams) => {
@@ -154,6 +115,9 @@ watch(() => props.stepParams, (newParams) => {
       
       // 更新请求方法  
       method.value = newParams.params.method as HttpMethod;
+
+      // 更新步骤参数
+      step.value = newParams;
       
     } else {
       console.warn('CaseStep对象中没有params属性！');
@@ -182,9 +146,6 @@ const apiResponse = ref({
   success: false
 })
 
-// 项目ID，可以从步骤参数中获取或使用默认值
-const projectId = ref<number>(6) // 默认值，代表本地项目
-
 const methodOptions = [
   {
     value: 'POST',
@@ -209,8 +170,13 @@ const methodOptions = [
 ]
 
 // 更新请求配置
-const updateRequestConfig = (config: any) => {
-  requestConfig.value = config
+const updateRequestConfig = (config: CaseStep) => {
+  console.log('stepDetail收到子组件paramCard更新的配置:', config);
+  // 更新本地步骤数据
+  step.value = config;
+  
+  // 更新请求配置中的steps
+  requestConfig.value.steps = [config];
 }
 
 // 保存步骤
@@ -231,90 +197,32 @@ const handleSave = async () => {
       ElMessage.warning('请输入域名')
       return
     }
-    
-    // 构建请求参数
-    const requestData: AddCaseStepRequest = {
-      step_name: stepName.value,
-      name: stepName.value,
-      env_id: projectId.value,
-      method: method.value,
-      host: UrlInput.value.trim(),
-      host_type: 1, // 默认值，根据实际情况调整
-      path: address.value,
-      ban_redirects: false, // 默认允许重定向
-      header_mode: 1, // 默认值，根据实际情况调整
-      header_source: requestConfig.value.headers,
-      query_mode: 1, // 默认值，根据实际情况调整
-      query_source: requestConfig.value.querys,
-      body_mode: 2, // JSON格式
-      body_source: {
-        name: "请求体",
-        id: 2
-      },
-      expect_mode: 1, // 默认值
-      expect_source: [],
-      output_mode: 1, // 默认值
-      output_source: [],
-      is_case: true, // 是测试用例步骤
-      // 添加id字段：如果有stepId且不是新建步骤，则包含id字段（表示更新操作）
-      ...(props.stepId && props.stepId > 0 ? { id: props.stepId } : {})
-    }
-    
-    console.log('保存步骤请求参数:', requestData)
-    
-    // 发送保存请求
-    const res = await addCaseStep(requestData)
-    
-    if (res?.code === 200) {
-      ElMessage.success('保存成功')
-      console.log('保存步骤响应:', res)
-      
-      // 获取返回的api_id，这将作为步骤的新ID
-      const newStepId = res.results?.api_id || props.stepId;
-      const isNewStep = !props.stepId || props.stepId <= 0;
-      
-      console.log(`步骤保存成功 - ${isNewStep ? '新建' : '更新'} - API ID: ${newStepId}`);
-      
-      // 构建步骤数据
-      const stepData = {
-        id: newStepId, // 使用返回的api_id作为步骤ID
-        params: {
-          host: UrlInput.value,
-          name: stepName.value,
-          path: address.value,
-          api_id: newStepId, // 同时设置params中的api_id
-          method: method.value,
-          body_mode: requestData.body_mode,
-          host_type: requestData.host_type,
-          query_mode: requestData.query_mode,
-          body_source: requestConfig.value.body || {},
-          expect_mode: requestData.expect_mode,
-          header_mode: requestData.header_mode,
-          output_mode: requestData.output_mode,
-          query_source: requestConfig.value.querys,
-          ban_redirects: requestData.ban_redirects,
-          expect_source: requestData.expect_source,
-          header_source: requestConfig.value.headers,
-          output_source: requestData.output_source
-        },
-        step_name: stepName.value,
-        type: "api",
-        status: 4,
-        enabled: true,
-        controller_data: null,
-        retried_times: 0,
-        results: null
-      };
-      
-      // 通知父组件步骤名称已更新
-      emit('update:stepName', stepName.value);
-      
-      // 通知父组件步骤已保存，并传递完整的步骤数据
-      // 使用新的步骤ID（api_id）
-      emit('stepSaved', newStepId, stepData);
+
+    // 设置请求参数
+    if (step.value) {
+      requestConfig.value.case_id = 23 // 暂时固定
+      requestConfig.value.env_id = 1 // 暂时固定
+      requestConfig.value.steps = [step.value]
+      console.log('保存步骤请求参数:', requestConfig.value)
     } else {
-      ElMessage.error(`保存失败: ${res?.message || '未知错误'}`)
+      ElMessage.warning('步骤数据不完整，无法保存')
+      return
     }
+
+    // // 发送保存请求
+    // const res = await addCaseStep(requestConfig.value)
+    
+    // if (res?.code === 200) {
+    //   ElMessage.success('保存成功')
+    //   console.log('保存步骤响应:', res)
+      
+    //   // 通知父组件步骤名称已更新
+    //   emit('update:stepName', stepName.value);
+      
+    //   // 通知父组件步骤已保存，并传递完整的步骤数据
+    // } else {
+    //   ElMessage.error(`保存失败: ${res?.message || '未知错误'}`)
+    // }
   } catch (error) {
     console.error('保存步骤错误:', error)
     ElMessage.error(`保存步骤错误: ${(error as Error).message || '未知错误'}`)
@@ -324,58 +232,14 @@ const handleSave = async () => {
 // 运行测试
 const handleRun = async () => {
   try {
-    // 检验必要数据
-    if (!stepName.value.trim()) {
-      ElMessage.warning('请输入步骤名称')
+    // 检查步骤是否存在
+    if (!step.value || !step.value.id) {
+      ElMessage.warning('没有有效的步骤ID，请先保存步骤')
       return
     }
-    
-    if (!method.value) {
-      ElMessage.warning('请选择请求方法')
-      return
-    }
-    
-    if (!UrlInput.value.trim()) {
-      ElMessage.warning('请输入域名')
-      return
-    }
-    
-    // 构建请求参数 - 严格按照后端API格式调整
-    const paramsData = {
-      step_name: stepName.value,
-      name: stepName.value,
-      env_id: projectId.value,
-      method: method.value,
-      timeout: null, // 根据示例添加
-      host: UrlInput.value.trim(),
-      host_type: 1,
-      path: address.value,
-      ban_redirects: false,
-      header_mode: 1,
-      header_source: requestConfig.value.headers,
-      query_mode: 1,
-      query_source: requestConfig.value.querys,
-      body_mode: 2,
-      // 根据示例，body_source是一个对象，而不是接口定义中的BodySourceItem
-      body_source: requestConfig.value.body && Object.keys(requestConfig.value.body).length > 0 
-        ? requestConfig.value.body 
-        : requestBody.value,
-      expect_mode: 1,
-      expect_source: [],
-      output_mode: 1,
-      output_source: []
-      // 注意：移除了is_case，因为示例中没有这个字段
-    }
-    
-    // 构建最终请求结构 - 包含params和外层step_name
-    const requestData = {
-      params: paramsData,
-      step_name: stepName.value
-    }
-    
+
     // 发送运行请求
-    const res = await runCaseStep(requestData)
-    
+    const res = await runCaseStep(step.value.id)
     if (res?.code === 200) {
       ElMessage.success('运行成功')
       // console.log('运行步骤响应:', res)
@@ -390,7 +254,6 @@ const handleRun = async () => {
     ElMessage.error(`运行步骤错误: ${(error as Error).message || '未知错误'}`)
   }
 }
-
 
 </script>
 

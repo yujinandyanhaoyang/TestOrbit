@@ -1,20 +1,8 @@
 
-import datetime
-
-from django.db import IntegrityError, transaction
-from django.db.models import  Max
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from apiData.models import ApiCaseModule, ApiCase, ApiModule, ApiCaseStep, ApiForeachStep
-from apiData.serializers import ApiCaseListSerializer, ApiCaseSerializer, ApiCaseDetailSerializer
-from utils.comDef import get_module_related, get_case_sort_list
-from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING, WAITING, INTERRUPT
-from utils.views import View
-from user.models import UserCfg
-from .caseStep import parse_api_case_steps,run_api_case_func,set_user_temp_params
-from .function.viewDef import parse_create_foreach_steps
+
 
 
 from .function.scheduled_tasks_def import create_scheduled_task, get_scheduled_tasks, cancel_scheduled_task, update_scheduled_task

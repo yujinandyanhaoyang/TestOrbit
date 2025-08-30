@@ -12,14 +12,14 @@ from utils.comDef import get_module_related, get_case_sort_list
 from utils.constant import DEFAULT_MODULE_NAME, USER_API, API, FAILED, API_CASE, API_FOREACH, SUCCESS, RUNNING, WAITING, INTERRUPT
 from utils.views import View
 from user.models import UserCfg
-from .caseStep import parse_api_case_steps,run_api_case_func,set_user_temp_params
 from .function.viewDef import parse_create_foreach_steps
 
 # 功能函数切分保存位置,变更到其他位置
 from .function.steps_def import save_step
-from .function.group_def import copy_cases_func,parse_api_case_steps
+from .function.group_def import copy_cases_func
 from .function.group_batch import handleGroupbatch, BatchExecutionException
-from .function.scheduled_tasks_def import create_scheduled_task, get_scheduled_tasks, cancel_scheduled_task
+
+
 
 
 """
@@ -67,7 +67,7 @@ class ApiCaseViews(View):
         """
         print('开始保存用例组\t')
         req_data = request.data
-        case_id  = req_data.get('id')
+        case_id  = req_data.get('case_id')
         env_id = req_data.get('env_id')
         steps = req_data.get('steps')
         for_next_id =  None
@@ -93,11 +93,13 @@ class ApiCaseViews(View):
                     if s_type == API:
 
                         # 检查是否存在id，决定是更新还是创建
-                        if step.get('id'):
-                            step_id = step['id']
+                        if step.get('step_id'):
+                            step_id = step['step_id']
+                            print(f"找到现有步骤，步骤ID: { step['step_id'] }")
                         else:
                             step_id = None      
-                        used_step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
+                        step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
+
 
                         # 暂时不考虑其他类型
                     # elif s_type == API_CASE:

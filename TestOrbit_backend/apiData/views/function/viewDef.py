@@ -25,9 +25,8 @@ from config.models import Environment
 from user.models import UserCfg, UserTempParams
 
 # 功能函数切分保存位置,变更到其他位置
-from .steps_def import go_step
-from .monitor_def import monitor_interrupt
-from .group_def import parse_api_case_steps,run_api_case_func
+
+
 
 class ApiCasesActuator:
     """
@@ -417,7 +416,7 @@ class ApiCasesActuator:
                         results = self.api_process + ext_res.get('results', '')
                         
                     # 执行断言规则
-                    from apiData.views.function.assertions_executor import execute_assertions
+                    from .step_assert import execute_assertions
                     # 检查是否有step_id用于断言
                     if 'step_id' in step:
                         # 执行断言，主要针对响应体
@@ -475,7 +474,8 @@ class ApiCasesActuator:
         """
         # 延迟导入避免循环引用
         from .group_def import run_step_groups
-
+        from .group_def import parse_api_case_steps
+        
         if cascader_level > 10:  # 引用计划嵌套超过10层判断为死循环
             self.cascader_error = True
             return {'status': FAILED}

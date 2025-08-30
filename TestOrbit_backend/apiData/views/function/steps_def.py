@@ -24,7 +24,7 @@ from utils.paramsDef import parse_param_value, run_params_code, parse_temp_param
 # 移除对 ProjectEnvirData 的导入，使用 Environment
 from config.models import Environment
 from user.models import UserCfg, UserTempParams
-
+from .step_assert import save_assert
 
 def create_api(step,env_id,case_id):
     """
@@ -73,6 +73,14 @@ def save_step(step, step_id, env_id, case_id):
     else:
         print(f"创建新步骤")
         step_id = create_api(step,env_id,case_id)
+    
+    # 创建or更新断言信息
+    # 检查是否存在断言，决定是否保存断言
+    if step.get('assertions'):
+        assert_data = step.get('assertions')
+        if len(assert_data) > 0 :
+            # 保存断言信息
+            used_step_assert = save_assert(step_id,assert_data)
     return step_id
 
 

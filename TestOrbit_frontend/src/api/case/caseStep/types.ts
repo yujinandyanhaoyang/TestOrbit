@@ -151,12 +151,12 @@ export interface BaseStepProps {
 export interface CaseStep extends BaseStepProps {
   step_order: number;          // 步骤顺序
   status: number;              // 步骤状态
-  controller_data: any;        // 控制器数据
-  retried_times: any;          // 重试次数，可能为null
+  controller_data: any | null;        // 控制器数据
+  retried_times: any | null;          // 重试次数，可能为null
   results: StepResult;    // 执行结果
   params: ApiStepParams; // 步骤参数（扩展版）
-  timeout: number;             // 超时时间
-  source: string;              // 来源
+  timeout: number | null;             // 超时时间
+  source: string | null;              // 来源
   assertions: Rule[]; // 断言规则列表
 }
 
@@ -164,26 +164,9 @@ export interface CaseStep extends BaseStepProps {
 
 // 添加测试步骤请求参数
 export interface AddCaseStepRequest {
-  id?: number;                 // 步骤ID，可选。如果提供则为更新操作，否则为创建操作
-  step_name: string;           // 步骤名称
-  name: string;                // 名称
-  env_id: number;              // 项目ID
-  method: HttpMethod;          // HTTP方法
-  host: string;                // 主机地址
-  host_type: number;           // 主机类型
-  path: string;                // 请求路径
-  ban_redirects: boolean;      // 是否禁止重定向
-  header_mode: number;         // 请求头模式
-  header_source: HeaderSourceItem[]; // 请求头数据源
-  query_mode: number;          // 查询参数模式
-  query_source: QuerySourceItem[];   // 查询参数数据源
-  body_mode: number;           // 请求体模式
-  body_source?: BodySourceItem;      // 请求体数据源
-  expect_mode: number;         // 期望模式
-  expect_source: any[];        // 期望数据源
-  output_mode: number;         // 输出模式
-  output_source: any[];        // 输出数据源
-  is_case: boolean;            // 是否为测试用例
+  case_id: number;             // 所属用例ID
+  env_id: number;              // 所属环境ID
+  steps: CaseStep[];           // 步骤列表
 }
 
 // =================== 全局变量相关类型 ===================

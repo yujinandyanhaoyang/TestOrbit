@@ -124,7 +124,7 @@ watch(() => props.requestHeaders, (newHeaders) => {
       remark: '',
       enabled: true,
     }));
-    console.log('Header组件转换后的headers数据:', headers.value);
+    // console.log('Header组件转换后的headers数据:', headers.value);
   } else {
     console.log('Header组件没有接收到有效的请求头数据');
   }
