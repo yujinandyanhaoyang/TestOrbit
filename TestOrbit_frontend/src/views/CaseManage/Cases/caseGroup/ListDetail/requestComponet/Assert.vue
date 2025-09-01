@@ -27,7 +27,8 @@
                     <el-input 
                         v-model="scope.row.expression" 
                         :placeholder="getExpressionPlaceholder(assertionType)" 
-                        @change="updateAssertions"
+                        @blur="updateAssertions"
+                        @keyup.enter="updateAssertions"
                         :disabled="!scope.row.enabled" 
                     />
                 </template>
@@ -62,7 +63,8 @@
                     <el-input 
                         v-model="scope.row.expected_value" 
                         placeholder="输入预期结果值" 
-                        @change="updateAssertions"
+                        @blur="updateAssertions"
+                        @keyup.enter="updateAssertions"
                         :disabled="!scope.row.enabled" 
                     />
                 </template>
@@ -134,8 +136,7 @@ const allAssertions = ref<Record<string, Rule[]>>({
 // 监听initialAssertions参数变化
 watch(() => props.initialAssertions, (currentAssertions) => {
   if (currentAssertions && currentAssertions.length > 0) {
-    console.log('initialAssertions接收到新的步骤参数:', currentAssertions);
-    console.log('初始断言规则:', currentAssertions[0].type);
+    // console.log('Assert组件接收到初始断言数据:', currentAssertions);
     
     // 清空旧的断言分组数据
     allAssertions.value = {
@@ -145,20 +146,35 @@ watch(() => props.initialAssertions, (currentAssertions) => {
         'status_code': []
     };
     
-    // 设置当前断言类型为第一个断言的类型
-    assertionType.value = currentAssertions[0].type;
-    
     // 将断言按类型分组
     currentAssertions.forEach(assertion => {
-        if (!allAssertions.value[assertion.type]) {
-            allAssertions.value[assertion.type] = [];
+        const type = assertion.type || 'jsonpath';
+        if (!allAssertions.value[type]) {
+            allAssertions.value[type] = [];
         }
-        allAssertions.value[assertion.type].push(assertion);
+        allAssertions.value[type].push(assertion);
     });
-    // console.log('分组后的结果:', allAssertions.value);
+    
+    // 设置当前断言类型为第一个断言的类型（如果有的话）
+    if (currentAssertions.length > 0) {
+        assertionType.value = currentAssertions[0].type || 'jsonpath';
+    }
+    
+    // console.log('Assert组件分组后的断言数据:', allAssertions.value);
     
     // 加载当前类型的断言到表格中
     loadAssertionItems();
+  } else {
+    // 没有初始断言数据，重置为空状态
+    // console.log('Assert组件没有接收到断言数据，重置为空状态');
+    allAssertions.value = {
+        'jsonpath': [],
+        'regex': [],
+        'xpath': [],
+        'status_code': []
+    };
+    assertionItems.value = [];
+    assertionType.value = 'jsonpath';
   }
 }, { deep: true, immediate: true });
 
@@ -177,10 +193,14 @@ const loadAssertionItems = () => {
         updated: assertion.updated
     }));
     
-    // 如果没有断言项，添加一个空的
-    if (assertionItems.value.length === 0) {
-        addRow();
+    // 保留现有的空行（用户正在编辑的）
+    const emptyRows = assertionItems.value.filter(item => item.expression.trim() === '');
+    if (assertionItems.value.length === 0 && emptyRows.length === 0) {
+        // 只有在没有任何断言项时才添加空行
+        console.log('没有断言数据，不自动添加空行，让用户主动添加');
     }
+    
+    // console.log('加载断言项:', assertionItems.value);
 };
 
 // 更改断言类型
@@ -198,45 +218,48 @@ const changeAssertionType = (type: string) => {
 // 保存当前类型的断言
 const saveCurrentAssertions = () => {
     // 将当前表格中的断言项保存到对应类型的断言列表中
-    allAssertions.value[assertionType.value] = assertionItems.value.map(item => ({
-        id: item.id,
-        type: assertionType.value,
-        expression: item.expression,
-        operator: item.operator,
-        expected_value: item.expected_value,
-        created: item.created,
-        updated: item.updated,
-        enabled: item.enabled,
-        step: props.stepId || 0,
-        display_text: generateDisplayText(item)
-    }));
+    allAssertions.value[assertionType.value] = assertionItems.value
+        .filter(item => item.expression.trim() !== '' || item.expected_value.trim() !== '') // 过滤完全空的行
+        .map(item => {
+            const now = new Date().toISOString();
+            return {
+                id: item.id,
+                type: assertionType.value,
+                expression: item.expression.trim(),
+                operator: item.operator,
+                expected_value: item.expected_value,
+                created: item.created,
+                updated: item.id > 0 ? now : item.updated, // 只有现有断言才更新时间
+                enabled: item.enabled,
+                step: props.stepId || 0,
+                display_text: generateDisplayText(item)
+            };
+        });
 };
 
 // 添加一行
 const addRow = () => {
+    const now = new Date().toISOString();
     assertionItems.value.push({
         id: generateTempId(),
         expression: '',
         operator: '==',
         expected_value: '',
         enabled: true,
-        created: new Date().toISOString(),
-        updated: new Date().toISOString()
+        created: now,
+        updated: now
     });
     
-    updateAssertions();
+    // 不立即触发更新，让用户先填写内容
+    // updateAssertions(); // 移除这行，改为在用户输入时才触发
 };
 
 // 删除一行
 const deleteRow = (index: number) => {
     assertionItems.value.splice(index, 1);
     
-    // 如果删除后没有断言项，添加一个空的
-    if (assertionItems.value.length === 0) {
-        addRow();
-    } else {
-        updateAssertions();
-    }
+    // 删除行时立即触发更新
+    updateAssertions();
 };
 
 // 更新断言，向父组件发送更新后的数据
@@ -247,13 +270,40 @@ const updateAssertions = () => {
     // 将所有类型的断言合并为一个数组
     const allAssertionsList = Object.values(allAssertions.value).flat();
     
-    // 只发送有效的断言（表达式和操作符不为空）
-    const validAssertions = allAssertionsList.filter(
-        assertion => assertion.expression && assertion.expression.trim() !== '' && assertion.enabled
-    );
+    // 处理断言数据：区分现有断言和新增断言
+    const processedAssertions = allAssertionsList
+        .filter(assertion => assertion.enabled && assertion.expression.trim() !== '')
+        .map(assertion => {
+            // 更新修改时间
+            const now = new Date().toISOString();
+            
+            // 如果是新增的断言（负数ID），返回简化格式给父组件
+            if (assertion.id < 0) {
+                return {
+                    expression: assertion.expression.trim(),
+                    operator: assertion.operator,
+                    expected_value: assertion.expected_value,
+                    type: assertion.type,
+                    enabled: assertion.enabled
+                };
+            } else {
+                // 现有断言，保持完整格式
+                return {
+                    ...assertion,
+                    updated: now,
+                    display_text: generateDisplayText({
+                        expression: assertion.expression,
+                        operator: assertion.operator,
+                        expected_value: assertion.expected_value
+                    } as AssertionItem)
+                };
+            }
+        });
+    
+    console.log('Assert组件发送断言数据给父组件:', processedAssertions);
     
     // 发送给父组件
-    emit('update:assert', validAssertions);
+    emit('update:assert', processedAssertions);
 };
 
 // 生成临时ID (负数，避免与后端生成的正数ID冲突)

@@ -55,9 +55,9 @@ urlpatterns = [
     # 测试步骤 步骤CURD完成
     # 保存单步骤
     # 获取单步骤详情信息
-    path('api-view', caseStep.ApiViews.as_view()),# 开始用到了
+    path('api-view', caseStep.ApiViews.as_view()),
     # 运行单步测试用例
-    path('steps/run', caseStep.test_api_data),#
+    path('steps/run', caseStep.test_api_data),
     # 复制步骤
     path('steps/copy-step', caseStep.copy_step),
     # 调整步骤顺序

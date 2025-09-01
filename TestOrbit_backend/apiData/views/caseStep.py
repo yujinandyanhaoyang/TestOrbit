@@ -57,6 +57,7 @@ class ApiViews(View):
         step = req_data['steps'][0]
         env_id = req_data.get('env_id')
         case_id = req_data.get('case_id')
+        print('step:', step)
 
         if step.get('step_id'):
             step_id = step['step_id']

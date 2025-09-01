@@ -26,10 +26,10 @@ export type CaseGroupListResponse = DataResponse<CaseGroupListResult>;
 // 用例组创建/更新请求体
 export interface AddCaseGroupRequest {
   name: string;            // 用例组名称
-  module_related: string[]; // 关联的模块ID列表
+  env_id: number;          // 环境ID
+  case_id?: number;             // 用例组ID，更新时需要
+  module_id: string;      // 模块ID
   steps: CaseStep[];       // 测试步骤列表
-  id?: number;             // 用例组ID，更新时需要
-  module_id?: string;      // 模块ID
 }
 
 // 用例组创建响应

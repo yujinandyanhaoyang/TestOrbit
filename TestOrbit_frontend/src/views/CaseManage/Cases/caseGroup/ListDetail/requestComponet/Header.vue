@@ -14,7 +14,8 @@
           <el-input 
             v-model="scope.row.key" 
             placeholder="请输入header名称" 
-            @change="updateHeaders"
+            @blur="updateHeaders"
+            @keyup.enter="updateHeaders"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -26,7 +27,8 @@
           <el-input 
             v-model="scope.row.value" 
             placeholder="请输入header值" 
-            @change="updateHeaders"
+            @blur="updateHeaders"
+            @keyup.enter="updateHeaders"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -38,7 +40,8 @@
           <el-input 
             v-model="scope.row.remark" 
             placeholder="可选描述" 
-            @change="updateHeaders"
+            @blur="updateHeaders"
+            @keyup.enter="updateHeaders"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -116,17 +119,27 @@ const headers = ref<HeaderItem[]>([]);
 
 // 监听props变化
 watch(() => props.requestHeaders, (newHeaders) => {
-  console.log('Header组件接收到新的请求头:', newHeaders);
+  // console.log('Header组件接收到新的请求头:', newHeaders);
+  
   if (newHeaders && Object.keys(newHeaders).length > 0) {
-    headers.value = Object.entries(newHeaders).map(([key, value]) => ({
+    // 转换为组件内部格式
+    const convertedHeaders = Object.entries(newHeaders).map(([key, value]) => ({
       key,
-      value,
+      value: value || '',
       remark: '',
       enabled: true,
     }));
+    
+    // 合并现有的空行（用户正在编辑的）
+    const emptyRows = headers.value.filter(item => item.key.trim() === '');
+    headers.value = [...convertedHeaders, ...emptyRows];
+    
     // console.log('Header组件转换后的headers数据:', headers.value);
   } else {
-    console.log('Header组件没有接收到有效的请求头数据');
+    // 如果没有数据，保留用户正在编辑的空行
+    const emptyRows = headers.value.filter(item => item.key.trim() === '');
+    headers.value = emptyRows.length > 0 ? emptyRows : [];
+    // console.log('Header组件没有接收到有效的请求头数据，保留空行');
   }
 }, { immediate: true });
 
@@ -142,12 +155,14 @@ const addRow = () => {
     remark: '',
     enabled: true,
   });
-  updateHeaders();
+  // 不立即触发更新，让用户先填写内容
+  // updateHeaders(); // 移除这行，改为在用户输入时才触发
 };
 
 // 删除一行
 const deleteRow = (index: number) => {
   headers.value.splice(index, 1);
+  // 删除行时立即触发更新
   updateHeaders();
 };
 
@@ -159,9 +174,13 @@ const updateHeaders = () => {
 // 获取启用的headers
 const getEnabledHeaders = () => {
   return headers.value
-    .filter(item => item.enabled && item.key.trim() !== '')
+    .filter(item => {
+      // 只过滤启用的且键名不为空的项
+      // 允许值为空的情况（有些header只需要键名）
+      return item.enabled && item.key.trim() !== '';
+    })
     .reduce((result, item) => {
-      result[item.key] = item.value;
+      result[item.key.trim()] = item.value || ''; // 确保值不为undefined
       return result;
     }, {} as Record<string, string>);
 };
@@ -214,9 +233,13 @@ const applyBulkEdit = () => {
   }
 };
 
-// 组件挂载时，初始化发送header数据给父组件
+// 组件挂载时，如果有有效数据才发送给父组件
 onMounted(() => {
-  updateHeaders();
+  const enabledHeaders = getEnabledHeaders();
+  // 只有当有有效的header数据时才通知父组件
+  if (Object.keys(enabledHeaders).length > 0) {
+    updateHeaders();
+  }
 });
 </script>
 

@@ -80,7 +80,7 @@ const jsonError = ref('');
 // 监听props变化，初始化请求体内容
 watch(() => props.requestBody, (newBody) => {
   if (newBody && Object.keys(newBody).length > 0) {
-    console.log('Body组件接收到新的请求体:', newBody);
+    // console.log('Body组件接收到新的请求体:', newBody);
     try {
       jsonContent.value = JSON.stringify(newBody, null, 2);
       isValidJson.value = true;

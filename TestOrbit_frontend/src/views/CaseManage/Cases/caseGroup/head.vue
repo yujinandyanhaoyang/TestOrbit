@@ -2,9 +2,9 @@
 <template>
     <div class="case-group-head">
         <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px" inline>
-          <el-form-item label="用例组名称" prop="groupName" required>
+          <el-form-item label="用例组名称" prop="name" required>
             <el-input
-              v-model="formData.groupName"
+              v-model="formData.name"
               style="width: 240px"
               placeholder="请输入用例组名称"
               clearable
@@ -39,29 +39,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted,watch } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { addCaseGroup } from '@/api/case/caseGroup';
 import { getTestModuleDetail } from '@/api/case/module';
 
 // 定义组件可以发射的事件
-const emit = defineEmits(['add-step', 'save-order', 'get-steps-data']);
+const emit = defineEmits(['add-step', 'save-order', 'get-steps-data', 'case-saved']);
 
 // 定义组件接收的属性，包括ListDetail组件的引用
-const props = defineProps({
-  caseName: {
-    type: String,
-    default: ''
-  },
-  moduleId: {
-    type: String,
-    default: ''
-  },
-  listDetailRef: {
-    type: Object,
-    default: null
-  }
-});
+
+const props = defineProps<{
+  caseId?: number          // 可选，更新时需要
+  caseName: string        // 用例组名称
+  moduleId?: string        // 模块ID
+  listDetailRef?: any      // ListDetail组件引用
+}>()
 
 // 引入自定义组件
 import RegionVar from './env/region_var.vue';
@@ -71,15 +65,15 @@ import ModulePath from './modulePath.vue';
 
 // 表单引用
 const formRef = ref<FormInstance>();
-
+// 环境id，暂时写为固定值1
+const env_id = 1;
 
 // 表单数据
 const formData = reactive({
-  id: props.moduleId || '',
-  groupName: props.caseName || '',
+  id: props.caseId,
+  name: props.caseName || '',
   module_id: props.moduleId || '',
   module: [] as string[],  // 由ModulePath组件控制，期望是字符串数组
-  moduleName: '' // 存储模块名称
 });
 
 // 用于加载模块详情的函数
@@ -90,7 +84,7 @@ const loadModuleDetail = async (moduleId: string) => {
     const response = await getTestModuleDetail(moduleId);
     if (response.code === 200 && response.success) {
       // 更新模块名称
-      formData.moduleName = response.results.data.name;
+      formData.name = response.results.data.name;
       // console.log('获取到模块名称:', formData.moduleName);
       
       // ModulePath组件预期接收字符串数组，而不是对象数组
@@ -109,7 +103,7 @@ const loadModuleDetail = async (moduleId: string) => {
 // 监听props变化，更新表单数据
 watch(() => props.caseName, (newValue) => {
   if (newValue) {
-    formData.groupName = newValue;
+    formData.name = newValue;
   }
 }, { immediate: true });
 
@@ -178,7 +172,7 @@ const saveDialog = () => {
 
 // 表单校验规则
 const rules = reactive<FormRules>({
-  groupName: [
+  name: [
     { required: true, message: '请输入用例组名称', trigger: 'blur' },
     { min: 2, max: 50, message: '长度应为2到50个字符', trigger: 'blur' }
   ],
@@ -190,13 +184,7 @@ const rules = reactive<FormRules>({
 
 
 const handleSave = async () => {
-  // 使用formData中的数据
-  const name = formData.groupName;
-  
-  // 获取选择的模块ID，现在由ModulePath组件通过handleModuleChangeEvent更新
-  const module_id = formData.module_id || props.moduleId;
-  const module_related = module_id ? [module_id] : [];
-  
+
   // 从ListDetail组件获取步骤数据
   let steps = [];
   
@@ -206,9 +194,18 @@ const handleSave = async () => {
     console.log('- 步骤数量:', steps.length);
     console.log('- 完整数据:', steps);
     
+    // 处理步骤数据的字段一致性问题：确保每个步骤都有 step_id 字段
+    steps = steps.map((step: any) => {
+      // 如果步骤有 id 但没有 step_id，则添加 step_id = id
+      if (step.id && !step.step_id) {
+        step.step_id = step.id;
+      }
+      return step;
+    });
+    
     // 验证每个步骤的数据完整性
     steps.forEach((step: any, index: number) => {
-      console.log(`步骤 ${index + 1} (ID: ${step.id}):`, {
+      console.log(`步骤 ${index + 1} (step_id: ${step.step_id}, id: ${step.id}):`, {
         step_name: step.step_name,
         type: step.type,
         params: step.params ? '有参数' : '无参数',
@@ -225,14 +222,13 @@ const handleSave = async () => {
     steps = [];
   }
   
-  // 组装请求体数据
+  // 组装请求体数据 - 根据 AddCaseGroupRequest 接口定义
   const requestData = {
-    name,
-    module_id,
-    module_related,
-    // 如果是编辑模式，需要提供id
-    id: props.moduleId ? 11 : undefined, // 这里可以根据实际情况修改或通过props传入
-    steps // 使用ListDetail组件提供的步骤数据
+    name: props.caseName,            // 用例组名称
+    module_id: formData.module_id,  // 模块ID
+    env_id: 1,                      // 环境ID，暂时写死为1
+    case_id: props.caseId,          // 用例组ID，更新时需要
+    steps                           // 测试步骤列表
   };
   
   console.log('准备保存的数据:', requestData);
@@ -240,13 +236,21 @@ const handleSave = async () => {
   // 使用addCaseGroup提交
   try {
     const response = await addCaseGroup(requestData);
-    if (response.code === 200 && response.success) {
+    if (response.code === 200) {
+      ElMessage.success('用例组保存成功');
       console.log('保存成功:', response.results);
-      // 可以添加提示或其他操作
+      
+      // 如果是新建（没有case_id），可以使用返回的ID更新当前ID
+      if (!props.caseId && response.results.id) {
+        // 这里可以通过emit通知父组件ID已更新
+        emit('case-saved', response.results.id);
+      }
     } else {
+      ElMessage.error(response.msg || '保存失败，请重试');
       console.error('保存失败:', response.msg);
     }
   } catch (error) {
+    ElMessage.error('保存请求发生错误，请重试');
     console.error('保存请求失败:', error);
   }
 }

@@ -19,7 +19,7 @@
     </el-tab-pane>
     <el-tab-pane label="断言">
       <Assert 
-        :stepId="props.stepParams?.id"
+        :stepId="props.stepParams?.step_id"
         :initialAssertions="assertions"
         @update:assert="updateAssert" />
     </el-tab-pane>
@@ -36,7 +36,7 @@ import BeforeProcessor from './requestComponet/BeforeProcessor.vue'
 import AfterProcessor from './requestComponet/AfterProcessor.vue'
 import Assert from './requestComponet/Assert.vue'
 
-import type { HeaderSourceItem, QuerySourceItem, CaseStep, Rule, ApiStepParams } from '@/api/case/caseStep/types';
+import type {  CaseStep, Rule, ApiStepParams } from '@/api/case/caseStep/types';
 
 // 定义接收的props
 const props = defineProps<{
@@ -60,7 +60,7 @@ watch(() => props.stepParams, (newParams) => {
 
 // 请求配置数据
 const stepParams = ref<CaseStep>({
-  id: 0,
+  step_id: 0,
   step_name: '',
   step_order: 0,
   type: 'api',
@@ -107,7 +107,7 @@ const stepParams = ref<CaseStep>({
 // 组件挂载时初始化
 onMounted(() => {
   if (props.stepParams) {
-    console.log('paramCard组件挂载时初始化stepParams:', props.stepParams);
+    // console.log('paramCard组件挂载时初始化stepParams:', props.stepParams);
     initRequestConfig(props.stepParams);
   }
 });
@@ -115,61 +115,69 @@ onMounted(() => {
 
 // 初始化请求配置
 const initRequestConfig = (caseStep: CaseStep) => {
-  console.log('paramCard初始化请求配置，接收到的步骤数据:', caseStep);
+  // console.log('paramCard初始化请求配置，接收到的步骤数据:', caseStep);
   
   // 先将完整的CaseStep对象保存到本地状态
   stepParams.value = { ...caseStep };
   
   // CaseStep 对象包含 params 字段，它是 ApiStepParams 类型
   if (caseStep.params) {
-    console.log('处理步骤参数:', caseStep.params);
-    
-    // 处理请求头 - 转换为Header组件期望的格式
+    // console.log('处理步骤参数:', caseStep.params);
+
+    // 更新step_id
+    stepParams.value.step_id = caseStep.step_id || 0;
+    console.log('更新后的stepParams.step_id:', stepParams.value.step_id);
+
+    // 处理请求头 - 从ExtendedHeaderParam[]转换为Record<string, string>格式
     if (caseStep.params.header_source && Array.isArray(caseStep.params.header_source)) {
-      // 转换ExtendedHeaderParam为Record<string, string>格式
       const headersObj: Record<string, string> = {};
       caseStep.params.header_source.forEach(header => {
-        headersObj[header.name] = header.value;
+        if (header.name && header.name.trim() !== '') {
+          headersObj[header.name] = header.value || '';
+        }
       });
       requestHeaders.value = headersObj;
-      console.log('设置headers为Record格式:', requestHeaders.value);
+      // console.log('从header_source转换为Record格式:', requestHeaders.value);
     } else {
       console.log('没有header_source数据或格式不正确');
-      // 设置为空对象，确保有默认值
       requestHeaders.value = {};
     }
     
-    // 处理查询参数 - 转换为Query组件期望的格式
+    // 处理查询参数 - 从ExtendedQueryParam[]转换为Record<string, string>格式
     if (caseStep.params.query_source && Array.isArray(caseStep.params.query_source)) {
-      // 转换ExtendedQueryParam为Record<string, string>格式
       const queryObj: Record<string, string> = {};
       caseStep.params.query_source.forEach(query => {
-        queryObj[query.name] = query.value;
+        if (query.name && query.name.trim() !== '') {
+          queryObj[query.name] = query.value || '';
+        }
       });
       requestQuery.value = queryObj;
-      console.log('设置querys为Record格式:', requestQuery.value);
+      // console.log('从query_source转换为Record格式:', requestQuery.value);
     } else {
       console.log('没有query_source数据或格式不正确');
-      // 设置为空对象，确保有默认值
       requestQuery.value = {};
     }
     
-    // 处理请求体
-    if (caseStep.params.body_source) {
+    // 处理请求体 - 直接使用body_source
+    if (caseStep.params.body_source !== undefined) {
       requestBody.value = caseStep.params.body_source;
-      console.log('设置body:', caseStep.params.body_source);
+      // console.log('设置body:', caseStep.params.body_source);
     } else {
       console.log('没有body_source数据');
       requestBody.value = {};
     }
   } else {
     console.warn('步骤参数中没有找到params字段:', caseStep);
+    // 设置默认值
+    requestHeaders.value = {};
+    requestQuery.value = {};
+    requestBody.value = {};
   }
 
   // 处理断言
   if (caseStep.assertions && Array.isArray(caseStep.assertions)) {
     assertions.value = caseStep.assertions;
-    console.log('设置assertions.value:', assertions.value);
+    // console.log('设置assertions.value:', assertions.value);
   } else {
     console.log('没有断言数据或格式不正确');
     assertions.value = [];
@@ -184,13 +192,20 @@ const updateHeaders = (headers: Record<string, string>) => {
     stepParams.value.params = {} as ApiStepParams;
   }
   
-  // 转换为API需要的格式
-  stepParams.value.params.header_source = Object.entries(headers).map(([name, value], index) => ({
-    id: Date.now() + index,
-    name,
-    value,
-    type: { type: 'string', auto: true }
-  }));
+  // 转换为API需要的ExtendedHeaderParam[]格式
+  stepParams.value.params.header_source = Object.entries(headers)
+    .filter(([name, value]) => name.trim() !== '') // 过滤空的键名
+    .map(([name, value]) => ({
+      name: name.trim(),
+      value: value || '',
+      type: { type: 'string' }
+    }));
+  
+  // 同步更新本地状态，确保双向绑定
+  requestHeaders.value = { ...headers };
+  
+  // console.log('更新请求头到header_source:', stepParams.value.params.header_source);
+  // console.log('同步更新requestHeaders:', requestHeaders.value);
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -202,13 +217,20 @@ const updateQuerys = (querys: Record<string, string>) => {
     stepParams.value.params = {} as ApiStepParams;
   }
   
-  // 转换为API需要的格式
-  stepParams.value.params.query_source = Object.entries(querys).map(([name, value], index) => ({
-    id: Date.now() + index,
-    name,
-    value,
-    type: { type: 'string', auto: false }
-  }));
+  // 转换为API需要的ExtendedQueryParam[]格式
+  stepParams.value.params.query_source = Object.entries(querys)
+    .filter(([name, value]) => name.trim() !== '') // 过滤空的键名
+    .map(([name, value]) => ({
+      name: name.trim(),
+      value: value || '',
+      type: { type: 'string' }
+    }));
+  
+  // 同步更新本地状态，确保双向绑定
+  requestQuery.value = { ...querys };
+  
+  // console.log('更新查询参数到query_source:', stepParams.value.params.query_source);
+  // console.log('同步更新requestQuery:', requestQuery.value);
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -220,19 +242,100 @@ const updateBody = (body: any) => {
     stepParams.value.params = {} as ApiStepParams;
   }
   
+  // 直接保存body数据
   stepParams.value.params.body_source = body;
+  
+  // 同步更新本地状态，确保双向绑定
+  requestBody.value = body;
+  
+  // console.log('更新请求体到body_source:', stepParams.value.params.body_source);
+  // console.log('同步更新requestBody:', requestBody.value);
+  
+  // 通知父组件
+  emit('newstep', stepParams.value);
+};
+
+// 更新Content-Type（Body组件可能需要）
+const updateContentType = (contentType: string) => {
+  if (!stepParams.value.params) {
+    stepParams.value.params = {} as ApiStepParams;
+  }
+  
+  // 更新Content-Type到header_source中
+  if (!stepParams.value.params.header_source) {
+    stepParams.value.params.header_source = [];
+  }
+  
+  // 查找是否已存在Content-Type
+  const existingIndex = stepParams.value.params.header_source.findIndex(
+    header => header.name.toLowerCase() === 'content-type'
+  );
+  
+  if (existingIndex >= 0) {
+    // 更新现有的Content-Type
+    stepParams.value.params.header_source[existingIndex].value = contentType;
+  } else {
+    // 添加新的Content-Type
+    stepParams.value.params.header_source.push({
+      name: 'Content-Type',
+      value: contentType,
+      type: { type: 'string' }
+    });
+  }
+  
+  // 同步更新requestHeaders
+  requestHeaders.value = {
+    ...requestHeaders.value,
+    'Content-Type': contentType
+  };
+  
+  // console.log('更新Content-Type:', contentType);
   
   // 通知父组件
   emit('newstep', stepParams.value);
 };
 
 // 更新断言
-const updateAssert = (assertRules: Rule[]) => {
+const updateAssert = (assertRules: any[]) => {
   if (!stepParams.value) {
     stepParams.value = {} as CaseStep;
   }
   
-  stepParams.value.assertions = assertRules;
+  // 处理断言数据：区分现有断言和新增断言
+  const processedAssertions: Rule[] = assertRules.map((rule, index) => {
+    const now = new Date().toISOString();
+    
+    // 如果是新增的断言（没有id或id为负数）
+    if (!rule.id || rule.id < 0) {
+      return {
+        id: 0, // 新增断言的ID设为0，后端会自动生成
+        type: rule.type || 'jsonpath',
+        expression: rule.expression,
+        operator: rule.operator,
+        expected_value: rule.expected_value,
+        created: now,
+        updated: now,
+        enabled: rule.enabled !== undefined ? rule.enabled : true,
+        step: props.stepParams?.step_id || 0,
+        display_text: `${rule.expression} ${rule.operator} ${rule.expected_value}`
+      } as Rule;
+    } else {
+      // 现有断言，保持原有结构，只更新修改时间
+      return {
+        ...rule,
+        updated: now,
+        step: props.stepParams?.step_id || 0
+      } as Rule;
+    }
+  });
+  
+  stepParams.value.assertions = processedAssertions;
+  
+  // 同步更新本地状态，确保双向绑定
+  assertions.value = [...processedAssertions];
+  
+  // console.log('更新断言到stepParams.assertions:', stepParams.value.assertions);
+  // console.log('同步更新assertions:', assertions.value);
   
   // 通知父组件
   emit('newstep', stepParams.value);

@@ -141,7 +141,7 @@ export interface ApiStepParams extends BaseApiParams {
 
 // 基础步骤属性
 export interface BaseStepProps {
-  id: number;                  // 步骤ID
+  step_id: number;                  // 步骤ID
   step_name: string;           // 步骤名称
   type: string;                // 步骤类型，如 "api"
   enabled: boolean;            // 是否启用

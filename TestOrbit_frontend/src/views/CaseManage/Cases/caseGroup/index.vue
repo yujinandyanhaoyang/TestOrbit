@@ -4,7 +4,8 @@
         <!--顶部操作框-->
         <div class="top">
             <Head 
-                :case-name="caseGroupData?.name || ''" 
+                :caseId="props.caseId"
+                :case-name="caseGroupData?.name" 
                 :module-id="caseGroupData?.module_id" 
                 :list-detail-ref="listDetailRef"
                 @add-step="handleAddStep" 

@@ -11,7 +11,7 @@
           class="el-menu-vertical-demo">
           <el-menu-item index="/ProjectManage" @click="changeActive('/ProjectManage')">
             <i class="el-icon-menu"></i>
-            <span slot="title">项目组管理-对应原环境管理</span>
+            <span slot="title">项目组管理</span>
           </el-menu-item>
           <el-menu-item index="/CaseManage" @click="changeActive('/CaseManage')">
             <i class="el-icon-menu"></i>

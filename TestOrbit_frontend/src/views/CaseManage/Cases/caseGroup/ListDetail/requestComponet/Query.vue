@@ -14,7 +14,8 @@
           <el-input 
             v-model="scope.row.key" 
             placeholder="请输入query名称" 
-            @change="updateQuerys"
+            @blur="updateQuerys"
+            @keyup.enter="updateQuerys"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -26,7 +27,8 @@
           <el-input 
             v-model="scope.row.value" 
             placeholder="请输入query值" 
-            @change="updateQuerys"
+            @blur="updateQuerys"
+            @keyup.enter="updateQuerys"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -38,7 +40,8 @@
           <el-input 
             v-model="scope.row.remark" 
             placeholder="可选描述" 
-            @change="updateQuerys"
+            @blur="updateQuerys"
+            @keyup.enter="updateQuerys"
             :disabled="!scope.row.enabled" 
           />
         </template>
@@ -139,12 +142,14 @@ const addRow = () => {
     remark: '',
     enabled: true,
   });
-  updateQuerys();
+  // 不立即触发更新，让用户先填写内容
+  // updateQuerys(); // 移除这行，改为在用户输入时才触发
 };
 
 // 删除一行
 const deleteRow = (index: number) => {
   querys.value.splice(index, 1);
+  // 删除行时立即触发更新
   updateQuerys();
 };
 
@@ -156,9 +161,13 @@ const updateQuerys = () => {
 // 获取启用的querys
 const getEnabledQuerys = () => {
   return querys.value
-    .filter(item => item.enabled && item.key.trim() !== '')
+    .filter(item => {
+      // 只过滤启用的且键名不为空的项
+      // 允许值为空的情况
+      return item.enabled && item.key.trim() !== '';
+    })
     .reduce((result, item) => {
-      result[item.key] = item.value;
+      result[item.key.trim()] = item.value || ''; // 确保值不为undefined
       return result;
     }, {} as Record<string, string>);
 };
