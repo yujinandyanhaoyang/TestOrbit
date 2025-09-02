@@ -42,9 +42,14 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import { addCaseGroup } from '@/api/case/caseGroup';
+// 导入Pinia store
+import { useCaseGroupStore } from '@/store/caseGroupStore';
 
 // 定义组件可以发射的事件
 const emit = defineEmits(['add-step', 'save-order', 'get-steps-data', 'case-saved']);
+
+// 使用Pinia store
+const caseGroupStore = useCaseGroupStore();
 
 // 定义组件接收的属性，包括ListDetail组件的引用
 
@@ -152,18 +157,12 @@ const rules = reactive<FormRules>({
 
 
 const handleSave = async () => {
-
-  // 从ListDetail组件获取步骤数据
+  // 🔥 优化：直接从Pinia store获取步骤数据，不再依赖组件引用
   let steps = [];
   
-  if (props.listDetailRef && typeof props.listDetailRef.getStepsData === 'function') {
-    // 获取最新的步骤数据
-    steps = props.listDetailRef.getStepsData();
-    
-    // 处理步骤数据的字段一致性问题：
-    // 1. 新步骤（临时负数ID）：移除step_id，让服务器分配新ID
-    // 2. 已有步骤（正数ID）：保留step_id用于更新
-    steps = steps.map((step: any) => {
+  if (caseGroupStore.caseGroupDetail && caseGroupStore.steps.length > 0) {
+    // 从store获取最新的步骤数据
+    steps = caseGroupStore.steps.map((step: any) => {
       const processedStep = { ...step }; // 创建副本避免修改原对象
       
       // 修复：确保step_name字段存在且有值
@@ -179,12 +178,18 @@ const handleSave = async () => {
         delete processedStep.step_id;
         console.log(`🆕 新步骤 "${processedStep.step_name}" 移除临时ID，等待服务器分配真实ID`);
       } else if (step.step_id && step.step_id > 0) {
-        // 已有步骤：保留step_id用于更新
-        console.log(`✏️ 已有步骤 "${processedStep.step_name}" (ID: ${step.step_id}) 保持ID用于更新`);
+        // 已有步骤：确保step_id = step.id，用于后端识别和更新
+        if (step.id) {
+          processedStep.step_id = step.id;
+          console.log(`✏️ 已有步骤 "${processedStep.step_name}" 设置step_id = ${step.id} (来自step.id)`);
+        } else {
+          processedStep.step_id = step.step_id;
+          console.log(`✏️ 已有步骤 "${processedStep.step_name}" 保持step_id = ${step.step_id}`);
+        }
       } else if (step.id && !step.step_id) {
-        // 兼容性处理：如果有id但没有step_id，则添加step_id = id
+        // 兼容性处理：如果有id但没有step_id，则设置step_id = id
         processedStep.step_id = step.id;
-        console.log(`🔄 步骤 "${processedStep.step_name}" 字段转换: id -> step_id`);
+        console.log(`🔄 步骤 "${processedStep.step_name}" 设置step_id = ${step.id} (从id字段)`);
       }
       
       // 确保所有必要的字段都存在
@@ -196,19 +201,17 @@ const handleSave = async () => {
       return processedStep;
     });
     
-    // 检查是否有步骤数据
-    if (steps.length === 0) {
-      console.warn('没有找到任何步骤数据');
-    } else {
-      console.log(`获取到 ${steps.length} 个步骤的最新数据`);
-    }
+    console.log(`从Store获取到 ${steps.length} 个步骤的最新数据`);
   } else {
-    console.warn('无法获取ListDetail组件引用或getStepsData方法');
-    if (props.listDetailRef) {
-      console.log('listDetailRef可用的方法:', Object.keys(props.listDetailRef));
+    console.warn('Store中没有找到用例组详情或步骤数据');
+    
+    // 降级：尝试从组件引用获取数据（向后兼容）
+    if (props.listDetailRef && typeof props.listDetailRef.getStepsData === 'function') {
+      console.log('🔄 降级使用组件引用获取步骤数据');
+      steps = props.listDetailRef.getStepsData();
+    } else {
+      steps = [];
     }
-    // 使用空数组作为后备方案
-    steps = [];
   }
   
   // 组装请求体数据 - 根据 AddCaseGroupRequest 接口定义
@@ -234,6 +237,29 @@ const handleSave = async () => {
     if (response.code === 200) {
       ElMessage.success('用例组保存成功');
       console.log('保存成功:', response.results);
+      
+      // 🎯 关键：保存成功后重新获取最新的用例组详情
+      // 这样可以获取到后端分配的真实ID，替换临时ID
+      const caseId = props.caseId || response.results.id;
+      if (caseId) {
+        console.log('🔄 重新获取用例组详情，更新步骤ID...');
+        
+        try {
+          // 重新从后端获取最新的用例组详情
+          await caseGroupStore.fetchCaseGroupDetail(caseId);
+          
+          console.log('🎉 步骤信息已更新！当前所有步骤:', 
+            caseGroupStore.steps.map(s => ({ 
+              name: s.step_name, 
+              step_id: s.step_id,
+              isRealId: s.step_id > 0 ? '真实ID' : '临时ID'
+            }))
+          );
+        } catch (fetchError) {
+          console.error('❌ 重新获取用例组详情失败:', fetchError);
+          // 即使重新获取失败，保存操作本身是成功的
+        }
+      }
       
       // 如果是新建（没有case_id），可以使用返回的ID更新当前ID
       if (!props.caseId && response.results.id) {

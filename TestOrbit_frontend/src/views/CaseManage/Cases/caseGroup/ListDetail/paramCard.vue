@@ -99,37 +99,45 @@ const stepParams = ref<CaseStep>({
   assertions: []
 });
 
-// 组件挂载时初始化
+// 监听步骤参数变化，统一处理初始化
+watch(() => props.stepParams, (newParams, oldParams) => {
+  if (newParams) {
+    // 只有当步骤ID真正变化时才初始化，避免无意义的重复初始化
+    const newStepId = newParams.step_id || (newParams as any).id || 0;
+    const oldStepId = oldParams?.step_id || (oldParams as any)?.id || 0;
+    
+    if (newStepId !== oldStepId) {
+      // console.log(`paramCard检测到step_id变化 (${oldStepId} -> ${newStepId})，执行初始化`);
+      initRequestConfig(newParams);
+    } else {
+      console.log('⏭️ paramCard跳过重复初始化，step_id未变化:', newStepId);
+    }
+  }
+}, { deep: true }); // 移除 immediate: true
+
+// 组件挂载时手动处理初始化
 onMounted(() => {
   if (props.stepParams) {
-    // console.log('paramCard组件挂载时初始化stepParams:', props.stepParams);
+    console.log('paramCard组件挂载时初始化');
     initRequestConfig(props.stepParams);
   }
 });
 
-// 监听步骤参数变化，直接进行初始化
-watch(() => props.stepParams, (newParams) => {
-  if (newParams) {
-    console.log('paramCard检测到props.stepParams变化，直接进行初始化');
-    initRequestConfig(newParams);
-  }
-}, { deep: true });
-
 
 // 初始化请求配置
 const initRequestConfig = (caseStep: CaseStep) => {
-  console.log('paramCard初始化请求配置，接收到的步骤数据:', {
-    step_id: caseStep.step_id,
-    id: (caseStep as any).id,
-    step_name: caseStep.step_name
-  });
+  // console.log('paramCard初始化请求配置，接收到的步骤数据:', {
+  //   step_id: caseStep.step_id,
+  //   id: (caseStep as any).id,
+  //   step_name: caseStep.step_name
+  // });
   
   // 🔥 设置初始化标志，防止初始化期间的emit事件
   isInitializing.value = true;
   
   // 🔥 关键修复：兼容处理id和step_id字段，确保正确获取步骤ID
   const actualStepId = caseStep.step_id || (caseStep as any).id || 0;
-  console.log('🔧 计算得到的实际步骤ID:', actualStepId);
+  // console.log('🔧 计算得到的实际步骤ID:', actualStepId);
   
   // 🔥 优先设置stepParams的基础信息，特别是step_id
   stepParams.value = { 
@@ -137,7 +145,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
     step_id: actualStepId  // 🔥 确保step_id字段正确设置
   };
   
-  console.log('✅ stepParams.step_id已设置为:', stepParams.value.step_id);
+  // console.log('✅ stepParams.step_id已设置为:', stepParams.value.step_id);
   
   // CaseStep 对象包含 params 字段，它是 ApiStepParams 类型
   if (caseStep.params) {
@@ -186,7 +194,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
       requestBody.value = {};
     }
   } else {
-    console.warn('步骤参数中没有找到params字段:', caseStep);
+    // console.warn('步骤参数中没有找到params字段:', caseStep);
     // 设置默认值
     requestHeaders.value = {};
     requestQuery.value = {};
@@ -196,17 +204,19 @@ const initRequestConfig = (caseStep: CaseStep) => {
   // 处理断言
   if (caseStep.assertions && Array.isArray(caseStep.assertions)) {
     assertions.value = caseStep.assertions;
-    console.log('✅ 设置assertions.value:', assertions.value.length, '个断言');
+    // console.log('✅ 设置assertions.value:', assertions.value.length, '个断言');
   } else {
     console.log('没有断言数据或格式不正确');
     assertions.value = [];
   }
   
   // 🔥 关键：延迟重置初始化标志，确保所有子组件都完成了初始化
+  // 对于新步骤（负数ID），给更多时间确保完全初始化
+  const delay = actualStepId < 0 ? 200 : 100;
   setTimeout(() => {
     isInitializing.value = false;
-    console.log('🎯 ParamCard初始化完成，开始接受更新事件');
-  }, 100);
+    // console.log(`🎯 ParamCard初始化完成，开始接受更新事件 (延迟${delay}ms)`);
+  }, delay);
 };
 
 
@@ -214,7 +224,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
 // 更新请求头
 const updateHeaders = (headers: Record<string, string>) => {
   if (isInitializing.value) {
-    console.log('⏭️ 跳过初始化期间的Header更新事件');
+    // console.log('⏭️ 跳过初始化期间的Header更新事件');
     return;
   }
   

@@ -216,9 +216,9 @@ const requestConfig = ref<AddCaseStepRequest>({
 const lastProcessedParamsData = ref<string>('');
 
 watch(() => props.stepParams, (newParams) => {
-  console.group('props.stepParams:', newParams);
-  console.group('props.stepParams.params:', newParams?.params);
-  console.group('props.stepParams.assertions:', newParams?.assertions);
+  // console.group('props.stepParams:', newParams);
+  // console.group('props.stepParams.params:', newParams?.params);
+  // console.group('props.stepParams.assertions:', newParams?.assertions);
   
   if (newParams) {
     // 🔥 优化：检测数据是否真正变化，避免重复更新界面
@@ -257,13 +257,13 @@ watch(() => props.stepParams, (newParams) => {
           step_id: correctStepId  // 确保使用正确的ID
         };
         
-        console.log(`✅ stepParams更新完成，step_id: ${correctStepId}`);
+        // console.log(`✅ stepParams更新完成，step_id: ${correctStepId}`);
         
       } else {
         console.warn('CaseStep对象中没有params属性！');
       }
     } else {
-      console.log('⏭️ stepDetail跳过重复的params更新');
+      // console.log('⏭️ stepDetail跳过重复的params更新');
     }
   } else {
     console.log('没有接收到stepParams参数');
@@ -272,6 +272,14 @@ watch(() => props.stepParams, (newParams) => {
 
 // 防止过度同步的标志位
 const isSyncingToParent = ref(false);
+
+// 安全重置同步标志的辅助函数
+const resetSyncFlag = () => {
+  setTimeout(() => {
+    isSyncingToParent.value = false;
+    console.log('🔄 重置isSyncingToParent标志');
+  }, 100);
+};
 
 // 监听页面输入框变化，实时同步到step对象（优化频率）
 watch([stepName, UrlInput, address, method], () => {
@@ -302,6 +310,7 @@ watch([stepName, UrlInput, address, method], () => {
         if (step.value && step.value.step_id) {
           console.log('🔄 延迟同步基础输入框数据到父组件');
           emit('step-saved', step.value.step_id, step.value);
+          resetSyncFlag(); // 确保同步标志被重置
         }
       }, 300); // 300ms防抖
     }
@@ -452,9 +461,7 @@ const updateRequestConfig = (config: CaseStep) => {
     }
   } finally {
     // 重置防护标志
-    setTimeout(() => {
-      isSyncingToParent.value = false;
-    }, 100);
+    resetSyncFlag();
   }
   
   console.log('更新后的完整step对象assertions长度:', step.value?.assertions?.length || 0);

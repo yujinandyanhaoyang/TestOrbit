@@ -41,216 +41,88 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, defineExpose, watch } from 'vue'
+import { ref, onMounted, defineExpose, watch, computed } from 'vue'
 import StepDetail from './stepDetail.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Rank, Upload } from '@element-plus/icons-vue'
 import type { CollapseModelValue } from 'element-plus'
 // 引入draggable组件
 import draggable from 'vuedraggable'
-import type { CaseGroupDetailResponse, CaseGroupDetail as CaseGroupDetailType } from '@/api/case/caseGroup/types'
-import type { CaseStep, ApiStepParams } from '@/api/case/caseStep/types'
+// 引入Pinia store
+import { useCaseGroupStore } from '@/store/caseGroupStore'
 
 // 定义组件props
 const props = defineProps<{
-  case_id?: number
-  stepsData?: CaseStep[]
+  caseId: number
 }>()
 
+// 使用Pinia store
+const caseGroupStore = useCaseGroupStore()
 
-// 步骤数据
-const steps = ref<CaseStep[]>([]);
+// 从store获取步骤数据
+const steps = computed({
+  get: () => caseGroupStore.steps,
+  set: (value) => {
+    // 这里处理拖拽排序时的步骤更新
+    if (caseGroupStore.caseGroupDetail) {
+      caseGroupStore.caseGroupDetail.steps = value
+    }
+  }
+})
 
 // 当前激活的步骤
-const activeNames = ref<string[]>(['1']);
+const activeNames = ref<string[]>([]);
 
-// 用例组详情数据
-const caseGroupData = ref<CaseGroupDetailType | null>(null);
-// 加载状态
-const loading = ref(false);
+// 加载状态直接从store获取
+const loading = computed(() => caseGroupStore.loading)
 
-// 组件挂载时获取用例组详情（如果有groupId），默认不展开任何步骤
+// 组件挂载时不需要获取数据，因为父组件会通过store管理数据
 onMounted(async () => {
   // 默认不展开任何步骤
   activeNames.value = [];
-
-  // 如果有case_id，则获取用例组详情
-  if (props.case_id) {
-    await fetchCaseGroupDetail(props.case_id);
-  }
 });
-
-// 监听case_id变化，重新获取用例组详情
-watch(() => props.case_id, async (newCaseId) => {
-  if (newCaseId) {
-    await fetchCaseGroupDetail(newCaseId);
-  }
-});
-
-// 监听stepsData变化，更新本地steps数据（优化版）
-watch(() => props.stepsData, (newStepsData, oldStepsData) => {
-  console.log('👀 stepsData变化监听触发:', { 
-    newStepsDataLength: newStepsData?.length || 0, 
-    currentStepsLength: steps.value.length,
-    oldStepsDataLength: oldStepsData?.length || 0
-  });
-  
-  // 🔥 关键优化：只在真正的外部数据变化时才更新
-  // 避免因内部handleStepSaved引起的循环更新
-  if (newStepsData && newStepsData.length > 0) {
-    // 检查是否是真正的外部数据变化（比如来自API的新数据）
-    const isExternalChange = !oldStepsData || 
-                           oldStepsData.length !== newStepsData.length ||
-                           steps.value.length === 0; // 初始化时
-    
-    console.log('📊 数据变化分析:', {
-      isExternalChange,
-      isInitialization: steps.value.length === 0,
-      lengthChanged: oldStepsData && oldStepsData.length !== newStepsData.length
-    });
-    
-    if (isExternalChange) {
-      // 处理步骤数据，确保每个步骤的step_name字段存在且不为空
-      const processedSteps = newStepsData.map((step: CaseStep) => {
-        const processedStep = { ...step };
-        
-        // 修复：确保step_name字段存在且有值
-        if (!processedStep.step_name || processedStep.step_name === '') {
-          // 如果步骤名称为空，尝试保留现有步骤的名称或使用默认值
-          const existingStep = steps.value.find(s => 
-            s.step_id === step.step_id || 
-            (s as any).id === (step as any).id
-          );
-          
-          if (existingStep && existingStep.step_name) {
-            processedStep.step_name = existingStep.step_name;
-            console.log(`🔄 保留现有步骤名称: "${existingStep.step_name}" (ID: ${step.step_id})`);
-          } else {
-            processedStep.step_name = `步骤${step.step_order || ''}`;
-            console.log(`⚠️ 步骤名称为空，设置默认名称: "${processedStep.step_name}" (ID: ${step.step_id})`);
-          }
-        }
-        
-        return processedStep;
-      });
-      
-      console.log('📝 外部数据变化，更新steps数据');
-      steps.value = processedSteps;
-      activeNames.value = [];
-    } else {
-      console.log('⏭️ 内部数据变化，跳过更新以避免循环');
-    }
-  }
-}, { immediate: true });
-
 
 // 步骤拖拽结束事件处理
 const onDragEnd = async () => {
-  // 首先更新本地steps数组中的顺序
+  // 拖拽排序后，steps的computed setter会自动更新store中的数据
+  // 这里只需要更新每个步骤的order并保存
   const updatedSteps = steps.value.map((step, index) => ({
     ...step,
     step_order: index + 1  // 从1开始编号
   }));
   
-  // 更新本地状态
-  steps.value = updatedSteps;
-
-  // 同步更新 caseGroupData 中的步骤数据（如果存在）
-  if (caseGroupData.value && caseGroupData.value.steps) {
-    caseGroupData.value.steps = updatedSteps;
-  }
-  
   // 触发每个步骤的更新以确保子组件同步
   for (const step of updatedSteps) {
-    await handleStepSaved(step.step_id || (step as any).id, step);
+    await caseGroupStore.updateStep(step.step_id || (step as any).id, step);
   }
   
   ElMessage.success('步骤顺序已更新');
 };
 
 // 添加新步骤
-const addNewStep = () => {
+const addNewStep = async () => {
   console.log('🔥 addNewStep被调用，当前步骤数量:', steps.value.length);
   
-  // 计算新步骤的顺序号（基于当前步骤数量）
-  const newOrder = steps.value.length + 1;
-  
-  // 创建临时本地ID（用于前端管理，保存时会被服务器分配的真实ID替换）
-  const tempId = Date.now(); // 使用时间戳作为临时ID
-  
-  // 创建初始的空白步骤
-  const newStepTitle = `新步骤${newOrder}`;
-  
-  console.log('🆕 准备创建新步骤:', { tempId: -tempId, stepName: newStepTitle, order: newOrder });
-  
-  // 创建新步骤对象并添加到步骤列表
-  const newStep: CaseStep = {
-    // 使用负数作为临时ID，避免与服务器分配的正数ID冲突
-    step_id: -tempId, // 临时ID，保存后会被服务器分配的真实ID替换
-    step_name: newStepTitle,
-    step_order: newOrder,
-    type: 'api',
-    status: 0,
-    controller_data: null,
-    retried_times: null,
-    enabled: true,
-    results: {
-      message: null,
-      request_log: {
-        url: '',
-        body: {},
-        header: {},
-        method: 'GET',
-        results: null,
-        response: null,
-        res_header: {},
-        spend_time: 0
-      }
-    },
-    params: {
-      host: '',
-      path: '/',
-      method: 'GET',
-      timeout: 30000,
-      body_mode: 0,
-      host_type: 0,
-      query_mode: 0,
-      body_source: {},
-      expect_mode: 0,
-      header_mode: 0,
-      output_mode: 0,
-      query_source: [],
-      ban_redirects: false,
-      expect_source: [],
-      header_source: [],
-      output_source: []
-    },
-    timeout: null,
-    source: null,
-    assertions: []
-  };
-  
-  // 添加新步骤到数组
-  steps.value.push(newStep);
-  console.log('✅ 步骤已添加到steps数组，当前步骤总数:', steps.value.length);
-  
-  // 自动展开新添加的步骤（使用步骤的step_id）
-  activeNames.value = [newStep.step_id.toString()];
-  
-  // ❌ 移除重复的数据同步 - 不要同时维护两个数据源
-  // 因为 props.stepsData 来自 caseGroupData.steps，会导致数据重复
-  // if (caseGroupData.value && caseGroupData.value.steps) {
-  //   caseGroupData.value.steps.push(newStep);
-  //   console.log('✅ 步骤已同步到caseGroupData，caseGroupData.steps长度:', caseGroupData.value.steps.length);
-  // }
-  
-  console.log('🎯 addNewStep完成，最终steps数组:', steps.value.map(s => ({ id: s.step_id, name: s.step_name })));
-  
-  ElMessage.success('已添加新步骤');
+  try {
+    // 直接调用 Pinia store 的 addNewStep 方法
+    await caseGroupStore.addNewStep();
+    
+    // 自动展开新添加的步骤（获取最后一个步骤）
+    const newStep = caseGroupStore.steps[caseGroupStore.steps.length - 1];
+    if (newStep) {
+      activeNames.value = [newStep.step_id.toString()];
+    }
+    
+    console.log('🎯 addNewStep完成，最终steps数组:', steps.value.map(s => ({ id: s.step_id, name: s.step_name })));
+    ElMessage.success('已添加新步骤');
+  } catch (error) {
+    console.error('❌ 添加新步骤失败:', error);
+    ElMessage.error('添加新步骤失败，请稍后重试');
+  }
 };
 
 // 删除步骤
-const removeStep = (id: number) => {
+const removeStep = async (id: number) => {
   ElMessageBox.confirm(
     '确定要删除此步骤吗？此操作不可撤销。',
     '删除确认',
@@ -260,41 +132,34 @@ const removeStep = (id: number) => {
       type: 'warning',
     }
   )
-    .then(() => {
-      steps.value = steps.value.filter(step => step.step_id !== id);
-      ElMessage.success('步骤已删除');
+    .then(async () => {
+      try {
+        await caseGroupStore.removeStep(id);
+        ElMessage.success('步骤已删除');
+      } catch (error) {
+        console.error('❌ 删除步骤失败:', error);
+        ElMessage.error('删除步骤失败，请稍后重试');
+      }
     })
     .catch(() => {
-      // 用户取消删除操作
+      ElMessage.info('已取消删除');
     });
 };
 
 // 更新步骤名称
 const updateStepName = (stepId: number, newName: string) => {
-  // 尝试多种方式查找步骤
-  let stepIndex = steps.value.findIndex(step => step.step_id === stepId);
-  if (stepIndex === -1) {
-    // 如果通过step_id找不到，尝试通过id字段查找
-    stepIndex = steps.value.findIndex(step => (step as any).id === stepId);
-  }
+  console.log(`📝 更新步骤名称: ID=${stepId}, 新名称="${newName}"`);
   
-  if (stepIndex !== -1) {
-    steps.value[stepIndex].step_name = newName;
-  }
+  // 由于使用了computed，直接修改store中的数据
+  const step = caseGroupStore.steps.find(step => 
+    step.step_id === stepId || (step as any).id === stepId
+  );
   
-  // 同时更新 caseGroupData 中的步骤名称（如果存在）
-  if (caseGroupData.value && caseGroupData.value.steps) {
-    let caseStepIndex = caseGroupData.value.steps.findIndex(step => 
-      step.step_id === stepId
-    );
-    if (caseStepIndex === -1) {
-      caseStepIndex = caseGroupData.value.steps.findIndex(step => 
-        (step as any).id === stepId
-      );
-    }
-    if (caseStepIndex !== -1) {
-      caseGroupData.value.steps[caseStepIndex].step_name = newName;
-    }
+  if (step) {
+    step.step_name = newName;
+    console.log('✅ 步骤名称更新成功');
+  } else {
+    console.warn(`⚠️ 未找到步骤 ID: ${stepId}`);
   }
 };
 
@@ -385,112 +250,12 @@ const handleChange = (val: CollapseModelValue) => {
   if (!currentStepId || isNaN(Number(currentStepId))) {
     return;
   }
-  
-};
-
-
-// 获取用例组详情数据（备用方法，主要数据通过props传递）
-const fetchCaseGroupDetail = async (groupId: number) => {
-  // 通过子组件传递数据
-};
-
-// 提供给父组件的方法，用于设置用例组详情
-const setCaseGroupDetail = (response: CaseGroupDetailResponse) => {
-  if (response.code === 200) {
-    caseGroupData.value = response.results;
-    
-    // 更新步骤数据
-    if (caseGroupData.value?.steps && caseGroupData.value.steps.length > 0) {
-      // 处理API返回的步骤数据，确保step_name字段存在且不为空
-      const processedSteps = caseGroupData.value.steps.map(step => {
-        // 创建副本避免修改原对象
-        const processedStep = { ...step };
-        
-        // 修复：确保step_name字段存在且不为空
-        if (!processedStep.step_name || processedStep.step_name === '') {
-          // 如果缺少step_name，尝试从其他字段获取或使用默认名称
-          processedStep.step_name = step.step_name || `步骤${step.step_order || '未知'}`;
-          console.log(`🔧 修复步骤名称: ID=${step.step_id}, 设置name=${processedStep.step_name}`);
-        }
-        
-        return processedStep;
-      });
-      
-      // console.log('📊 处理后的步骤数据:', processedSteps.map(s => ({
-      //   id: s.step_id, 
-      //   name: s.step_name, 
-      //   order: s.step_order
-      // })));
-      
-      // 使用处理后的步骤数据
-      steps.value = processedSteps;
-      
-      // 默认不展开任何步骤
-      activeNames.value = [];
-    }
-  }
 };
 
 // 获取当前的步骤数据
 const getStepsData = () => {
-  // 确保返回最新的步骤数据，包含所有更新
-  // steps.value 中包含了通过handleStepSaved方法更新的数据
-  
-  // 1. 确保所有步骤数据的完整性
-  const currentSteps = steps.value.map((step, index) => {
-    const processedStep = { ...step }; // 创建副本避免修改原对象
-    
-    // 处理ID字段统一性
-    if (!processedStep.step_id && (step as any).id) {
-      processedStep.step_id = (step as any).id;
-    }
-    
-    // 确保step_order字段正确（基于当前索引）
-    processedStep.step_order = index + 1;
-    
-    // 确保必要的字段存在
-    if (!processedStep.params) {
-      console.warn(`步骤 ${step.step_name || '未命名'} 缺少params字段`);
-      // 使用默认的空params结构
-      processedStep.params = step.params || {
-        host: '',
-        path: '/',
-        method: 'GET',
-        timeout: 30000,
-        body_mode: 0,
-        host_type: 0,
-        query_mode: 0,
-        body_source: {},
-        expect_mode: 0,
-        header_mode: 0,
-        output_mode: 0,
-        query_source: [],
-        ban_redirects: false,
-        expect_source: [],
-        header_source: [],
-        output_source: []
-      } as any;
-    }
-    
-    // 删除可能存在的多余id字段，统一使用step_id
-    delete (processedStep as any).id;
-    
-    // 🎯 重要：这里不处理临时ID的移除逻辑
-    // 让head.vue中的保存逻辑来处理新步骤的ID移除
-    // 这样保持职责分离：getStepsData只负责获取数据，不负责数据转换
-    
-    return processedStep;
-  });
-  
-  console.log(`🔍 getStepsData: 准备提交 ${currentSteps.length} 个步骤数据`, 
-    currentSteps.map(s => ({ 
-      name: s.step_name, 
-      id: s.step_id, 
-      isNew: s.step_id && s.step_id < 0 ? '新步骤' : '已有步骤' 
-    }))
-  );
-  
-  return currentSteps;
+  // 直接从Pinia store返回步骤数据
+  return caseGroupStore.steps;
 };
 
 // 保存步骤顺序的方法
@@ -536,7 +301,6 @@ const saveAllSteps = async () => {
 // 公开方法给父组件调用
 defineExpose({
   addNewStep,
-  setCaseGroupDetail,
   getStepsData,    // 添加获取步骤数据的方法
   saveStepOrder,   // 添加保存步骤顺序的方法
   saveAllSteps     // 添加保存所有步骤数据的方法
