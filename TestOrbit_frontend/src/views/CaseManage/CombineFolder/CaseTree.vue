@@ -2,10 +2,11 @@
   <div class="case-tree-container">
     <div class="header">
       <el-select
-        v-model="selectedProjectId"
+        v-model="caseModuleStore.selectedProjectId"
         placeholder="请选择所属项目组"
         style="width: 100%"
-        clearable>
+        clearable
+        @change="handleProjectChange">
         <el-option 
           v-for="project in projectOptions" 
           :key="project.id" 
@@ -109,9 +110,9 @@ import { getProjectList } from '@/api/project/index'
 const projectMap = ref<Map<number, string>>(new Map())
 // 项目选项列表
 const projectOptions = ref<{id: number, name: string}[]>([])
-// 选中的项目ID
-const selectedProjectId = ref<number | null>(null)
 
+// 使用 Pinia store 管理选中状态
+const caseModuleStore = useCaseModuleStore()
 
 // 树数据
 const treeData = ref<ElTreeNode[]>([])
@@ -151,8 +152,8 @@ const parentName = computed(() => {
 
 // 计算当前选中项目的名称
 const selectedProjectName = computed(() => {
-  if (!selectedProjectId.value) return '未选择项目'
-  return projectMap.value.get(selectedProjectId.value) || `项目ID: ${selectedProjectId.value}`
+  if (!caseModuleStore.selectedProjectId) return '未选择项目'
+  return projectMap.value.get(caseModuleStore.selectedProjectId) || `项目ID: ${caseModuleStore.selectedProjectId}`
 })
 
 // 加载测试文件树
@@ -224,7 +225,7 @@ const handleDelete = (node: any, data: ElTreeNode) => {
       if (response.success) {
         ElMessage.success('删除成功')
         // 重新加载树，使用当前选中的项目ID
-        loadTreeData(selectedProjectId.value || undefined)
+        loadTreeData(caseModuleStore.selectedProjectId || undefined)
       } else {
         ElMessage.error(response.msg || '删除失败')
       }
@@ -245,7 +246,7 @@ const submitModule = async () => {
   }
   
   // 如果是添加操作且没有选择项目，提示用户
-  if (dialogType.value === 'add' && !selectedProjectId.value) {
+  if (dialogType.value === 'add' && !caseModuleStore.selectedProjectId) {
     ElMessage.warning('请先选择一个项目')
     return
   }
@@ -257,7 +258,7 @@ const submitModule = async () => {
       response = await createTestModule(
         moduleForm.value.name, 
         moduleForm.value.parent_id,
-        selectedProjectId.value || undefined
+        caseModuleStore.selectedProjectId || undefined
       )
     } else {
       response = await updateTestModule(moduleForm.value.id, moduleForm.value.name)
@@ -267,7 +268,7 @@ const submitModule = async () => {
       ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
       dialogVisible.value = false
       // 重新加载树
-      loadTreeData(selectedProjectId.value || undefined)
+      loadTreeData(caseModuleStore.selectedProjectId || undefined)
     } else {
       ElMessage.error(response.msg || (dialogType.value === 'add' ? '添加失败' : '更新失败'))
     }
@@ -297,6 +298,23 @@ const fetchProjects = async () => {
           name: project.name
         })
       })
+      
+      // 🔥 默认选中第一个项目（如果当前没有选中任何项目或选中的项目不在列表中）
+      if (projectOptions.value.length > 0) {
+        const currentProjectExists = projectOptions.value.some(p => p.id === caseModuleStore.selectedProjectId)
+        
+        if (!caseModuleStore.selectedProjectId || !currentProjectExists) {
+          const firstProject = projectOptions.value[0]
+          console.log(`🎯 自动选中第一个项目: ${firstProject.name} (ID: ${firstProject.id})`)
+          caseModuleStore.setSelectedProjectId(firstProject.id)
+          // 立即加载数据，因为这是初始化
+          loadTreeData(firstProject.id)
+        } else {
+          // 如果已有有效的选中项目，加载该项目数据
+          console.log(`📌 保持当前选中项目: ID ${caseModuleStore.selectedProjectId}`)
+          loadTreeData(caseModuleStore.selectedProjectId)
+        }
+      }
     } else {
       ElMessage.warning('获取项目列表失败')
     }
@@ -306,25 +324,29 @@ const fetchProjects = async () => {
   }
 }
 
-// 监听选中的项目ID变化
-watch(selectedProjectId, (newVal) => {
-  if (newVal !== null) {
-    // 使用选中的项目ID
+// 处理项目选择变更
+const handleProjectChange = (projectId: number | null) => {
+  console.log(`🔄 用户手动选择项目: ${projectId}`)
+  // 只更新store中的项目ID，让watch监听器处理数据加载
+  caseModuleStore.setSelectedProjectId(projectId)
+}
+
+// 监听store中项目ID的变化
+watch(() => caseModuleStore.selectedProjectId, (newVal, oldVal) => {
+  console.log(`📊 Store中项目ID变化: ${oldVal} -> ${newVal}`)
+  // 只有在真正发生变化时才加载数据（避免初始化时的空加载）
+  if (newVal !== oldVal && newVal !== null) {
     loadTreeData(newVal)
-  } else {
-    // 如果没有选中的项目，则不传项目ID
+  } else if (newVal === null) {
+    // 如果清空选择，加载默认树
     loadTreeData()
   }
 }, { immediate: false })
 
 onMounted(() => {
+  // 先获取项目列表，fetchProjects内部会自动选择第一个项目并加载对应的树数据
   fetchProjects()
-  // 不传递项目ID，加载默认树或空树
-  loadTreeData()
 })
-
-// 使用 Pinia store 管理选中的模块ID
-const caseModuleStore = useCaseModuleStore()
 
 // 处理节点点击
 const handleNodeClick = (id: string) => {

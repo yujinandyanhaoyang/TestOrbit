@@ -15,7 +15,7 @@
             v-model:moduleValue="formData.module" 
             :moduleId="props.moduleId" 
             @moduleChange="handleModuleChangeEvent" 
-          />
+          /> 
         </el-form>
         <div class="action-buttons">
           <el-button type="primary" @click="openDialog('global')">全局变量</el-button>
@@ -42,7 +42,6 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import { addCaseGroup } from '@/api/case/caseGroup';
-import { getTestModuleDetail } from '@/api/case/module';
 
 // 定义组件可以发射的事件
 const emit = defineEmits(['add-step', 'save-order', 'get-steps-data', 'case-saved']);
@@ -65,7 +64,6 @@ import ModulePath from './modulePath.vue';
 // 表单引用
 const formRef = ref<FormInstance>();
 // 环境id，暂时写为固定值1
-const env_id = 1;
 
 // 表单数据
 const formData = reactive({
@@ -75,43 +73,14 @@ const formData = reactive({
   module: [] as string[],  // 由ModulePath组件控制，期望是字符串数组
 });
 
-// 用于加载模块详情的函数
-const loadModuleDetail = async (moduleId: string) => {
-  if (!moduleId) return;
-  
-  try {
-    const response = await getTestModuleDetail(moduleId);
-    if (response.code === 200 && response.success) {
-      // 更新模块名称
-      formData.name = response.results.data.name;
-      // console.log('获取到模块名称:', formData.moduleName);
-      
-      // ModulePath组件预期接收字符串数组，而不是对象数组
-      // 这里只设置module_id，实际路径由ModulePath组件内部的findAndSetModulePath处理
-      formData.module = [moduleId];
-      
-      // console.log(`已加载模块(ID: ${moduleId})的详情，名称: ${formData.moduleName}`);
-    } else {
-      console.warn('获取模块详情失败:', response.msg);
-    }
-  } catch (error) {
-    console.error('加载模块详情出错:', error);
-  }
-};
-
 // 监听props变化，更新表单数据
 watch(() => props.caseName, (newValue) => {
   if (newValue) {
+    // console.log('用例组名称更新为formData.name:', newValue);
     formData.name = newValue;
   }
 }, { immediate: true });
 
-// 监听moduleId变化，获取模块详情
-watch(() => props.moduleId, (newModuleId) => {
-  if (newModuleId) {
-    loadModuleDetail(newModuleId);
-  }
-}, { immediate: true });
 
 // 处理模块选择变更事件
 const handleModuleChangeEvent = (data: { path: string[], moduleId: string, moduleInfo: any }) => {
@@ -197,23 +166,30 @@ const handleSave = async () => {
     steps = steps.map((step: any) => {
       const processedStep = { ...step }; // 创建副本避免修改原对象
       
+      // 修复：确保step_name字段存在且有值
+      if (!processedStep.step_name || processedStep.step_name === '') {
+        // 如果步骤名称为空，设置一个默认名称
+        processedStep.step_name = `步骤${processedStep.step_order || ''}`;
+        console.log(`⚠️ 步骤名称为空，设置默认名称: "${processedStep.step_name}"`);
+      }
+      
       // 检查是否是新步骤（我们用负数作为临时ID）
       if (step.step_id && step.step_id < 0) {
         // 新步骤：移除step_id让服务器分配新ID
         delete processedStep.step_id;
-        console.log(`🆕 新步骤 "${step.step_name}" 移除临时ID，等待服务器分配真实ID`);
+        console.log(`🆕 新步骤 "${processedStep.step_name}" 移除临时ID，等待服务器分配真实ID`);
       } else if (step.step_id && step.step_id > 0) {
         // 已有步骤：保留step_id用于更新
-        console.log(`✏️ 已有步骤 "${step.step_name}" (ID: ${step.step_id}) 保持ID用于更新`);
+        console.log(`✏️ 已有步骤 "${processedStep.step_name}" (ID: ${step.step_id}) 保持ID用于更新`);
       } else if (step.id && !step.step_id) {
         // 兼容性处理：如果有id但没有step_id，则添加step_id = id
         processedStep.step_id = step.id;
-        console.log(`🔄 步骤 "${step.step_name}" 字段转换: id -> step_id`);
+        console.log(`🔄 步骤 "${processedStep.step_name}" 字段转换: id -> step_id`);
       }
       
       // 确保所有必要的字段都存在
       if (!processedStep.params) {
-        console.warn(`步骤 ${step.step_name || '未命名'} 缺少params字段，使用默认值`);
+        console.warn(`步骤 ${processedStep.step_name || '未命名'} 缺少params字段，使用默认值`);
         processedStep.params = {}; // 确保params字段存在
       }
       
@@ -237,20 +213,20 @@ const handleSave = async () => {
   
   // 组装请求体数据 - 根据 AddCaseGroupRequest 接口定义
   const requestData = {
-    name: props.caseName,            // 用例组名称
+    name: formData.name,            // 用例组名称
     module_id: formData.module_id,  // 模块ID
     env_id: 1,                      // 环境ID，暂时写死为1
     case_id: props.caseId,          // 用例组ID，更新时需要
     steps                           // 测试步骤列表
   };
   
-  console.log('🚀 准备保存的数据:', requestData);
-  console.log('📋 步骤详情:', steps.map((s: any) => ({
-    name: s.step_name,
-    hasStepId: !!s.step_id,
-    stepId: s.step_id,
-    isNew: !s.step_id ? '新步骤(无ID)' : s.step_id < 0 ? '临时步骤(负ID)' : '已有步骤(正ID)'
-  })));
+  // console.log('🚀 准备保存的数据:', requestData);
+  // console.log('📋 步骤详情:', steps.map((s: any) => ({
+  //   name: s.step_name,
+  //   hasStepId: !!s.step_id,
+  //   stepId: s.step_id,
+  //   isNew: !s.step_id ? '新步骤(无ID)' : s.step_id < 0 ? '临时步骤(负ID)' : '已有步骤(正ID)'
+  // })));
   
   // 使用addCaseGroup提交
   try {
@@ -273,7 +249,7 @@ const handleSave = async () => {
     console.error('保存请求失败:', error);
   }
 }
-
+ 
 // 添加步骤按钮处理函数
 const handleAddStep = () => {
   // 触发添加步骤事件，ListDetail组件会监听此事件

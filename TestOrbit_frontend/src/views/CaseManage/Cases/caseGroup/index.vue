@@ -48,14 +48,32 @@ const fetchCaseGroupData = async (case_id: number) => {
     
     loading.value = true;
     try {
-        // console.log('(caseGroup/index)正在获取用例组详情，ID:', case_id);
+        console.log('(caseGroup/index) 正在获取用例组详情，ID:', case_id);
         // 获取用例组详情，使用await等待异步操作完成
         const response = await getCaseGroupDetail(case_id);
         
         if (response.code === 200) {
+            // 检查步骤数据是否完整
+            if (response.results && response.results.steps) {
+                // 检查每个步骤是否有name字段
+                const stepsWithMissingNames = response.results.steps.filter(
+                    (step: any) => !step.step_name || step.step_name === ''
+                );
+                
+                if (stepsWithMissingNames.length > 0) {
+                    console.warn(`⚠️ 发现 ${stepsWithMissingNames.length} 个步骤缺少名称:`, 
+                        stepsWithMissingNames.map((s: any) => ({ id: s.step_id, order: s.step_order }))
+                    );
+                }
+            }
+            
             // 保存用例组详情数据
             caseGroupData.value = response.results;
-            // console.log('用例组详情加载成功:', response.results);
+            console.log('用例组详情加载成功:', {
+                name: response.results.name,
+                stepsCount: response.results.steps?.length || 0,
+                moduleId: response.results.module_id
+            });
             
             // 调用ListDetail组件的setCaseGroupDetail方法
             if (listDetailRef.value) {
@@ -109,5 +127,13 @@ const handleSaveOrder = () => {
     if (listDetailRef.value) {
         listDetailRef.value.saveStepOrder();
     }
+};
+
+// 获取最新的步骤数据（从ListDetail组件获取，而不是从缓存的caseGroupData获取）
+const getLatestStepsData = () => {
+    if (listDetailRef.value) {
+        return listDetailRef.value.getStepsData();
+    }
+    return caseGroupData.value?.steps || [];
 };
 </script>

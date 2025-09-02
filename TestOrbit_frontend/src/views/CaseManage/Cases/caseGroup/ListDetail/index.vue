@@ -87,7 +87,7 @@ watch(() => props.case_id, async (newCaseId) => {
   }
 });
 
-// 监听stepsData变化，更新本地steps数据
+// 监听stepsData变化，更新本地steps数据（优化版）
 watch(() => props.stepsData, (newStepsData, oldStepsData) => {
   console.log('👀 stepsData变化监听触发:', { 
     newStepsDataLength: newStepsData?.length || 0, 
@@ -95,22 +95,50 @@ watch(() => props.stepsData, (newStepsData, oldStepsData) => {
     oldStepsDataLength: oldStepsData?.length || 0
   });
   
-  // 只有在初始化时或者外部数据真正变化时才更新
-  // 避免因为本地添加步骤导致的重复更新
+  // 🔥 关键优化：只在真正的外部数据变化时才更新
+  // 避免因内部handleStepSaved引起的循环更新
   if (newStepsData && newStepsData.length > 0) {
-    // 如果当前steps为空（初始化），则直接更新
-    if (steps.value.length === 0) {
-      console.log('📝 初始化steps数据:', newStepsData.length);
-      steps.value = newStepsData;
-      activeNames.value = [];
-    }
-    // 如果是外部真正的数据变化（比如重新获取API数据），则更新
-    else if (oldStepsData && oldStepsData.length !== newStepsData.length) {
-      console.log('📝 外部数据变化，更新steps数据，从', oldStepsData.length, '到', newStepsData.length);
-      steps.value = newStepsData;
+    // 检查是否是真正的外部数据变化（比如来自API的新数据）
+    const isExternalChange = !oldStepsData || 
+                           oldStepsData.length !== newStepsData.length ||
+                           steps.value.length === 0; // 初始化时
+    
+    console.log('📊 数据变化分析:', {
+      isExternalChange,
+      isInitialization: steps.value.length === 0,
+      lengthChanged: oldStepsData && oldStepsData.length !== newStepsData.length
+    });
+    
+    if (isExternalChange) {
+      // 处理步骤数据，确保每个步骤的step_name字段存在且不为空
+      const processedSteps = newStepsData.map((step: CaseStep) => {
+        const processedStep = { ...step };
+        
+        // 修复：确保step_name字段存在且有值
+        if (!processedStep.step_name || processedStep.step_name === '') {
+          // 如果步骤名称为空，尝试保留现有步骤的名称或使用默认值
+          const existingStep = steps.value.find(s => 
+            s.step_id === step.step_id || 
+            (s as any).id === (step as any).id
+          );
+          
+          if (existingStep && existingStep.step_name) {
+            processedStep.step_name = existingStep.step_name;
+            console.log(`🔄 保留现有步骤名称: "${existingStep.step_name}" (ID: ${step.step_id})`);
+          } else {
+            processedStep.step_name = `步骤${step.step_order || ''}`;
+            console.log(`⚠️ 步骤名称为空，设置默认名称: "${processedStep.step_name}" (ID: ${step.step_id})`);
+          }
+        }
+        
+        return processedStep;
+      });
+      
+      console.log('📝 外部数据变化，更新steps数据');
+      steps.value = processedSteps;
       activeNames.value = [];
     } else {
-      console.log('⏭️ 忽略内部数据变化，保持当前步骤状态');
+      console.log('⏭️ 内部数据变化，跳过更新以避免循环');
     }
   }
 }, { immediate: true });
@@ -275,6 +303,7 @@ const handleStepSaved = (stepId: number, stepData: any) => {
   console.log('🔄 handleStepSaved被调用:', { 
     stepId, 
     stepName: stepData.step_name,
+    assertionsCount: stepData.assertions?.length || 0,
     currentStepsIds: steps.value.map(s => ({ id: s.step_id, name: s.step_name }))
   });
   
@@ -292,16 +321,44 @@ const handleStepSaved = (stepId: number, stepData: any) => {
     console.log('✅ 找到步骤，更新索引:', stepIndex);
     // 合并数据，确保保留原始数据的结构
     const originalStep = steps.value[stepIndex];
+    
+    // 修复：确保stepData.step_name不为空，如果为空则保留原始步骤名称
+    if (!stepData.step_name || stepData.step_name === '') {
+      if (originalStep.step_name) {
+        // 如果原步骤有名称，则保留原名称
+        console.log(`⚠️ 发现stepData.step_name为空，保留原步骤名称: "${originalStep.step_name}"`);
+        stepData.step_name = originalStep.step_name;
+      } else {
+        // 如果原步骤也没有名称，则设置默认名称
+        stepData.step_name = `步骤${originalStep.step_order || stepIndex + 1}`;
+        console.log(`⚠️ 发现步骤名称缺失，设置默认名称: "${stepData.step_name}"`);
+      }
+    }
+    
+    // 🔥 关键修复：智能保留assertions数据
+    const originalAssertions = originalStep.assertions || [];
+    const newAssertions = stepData.assertions || [];
+    
+    // 如果新数据的assertions为空，但原数据有assertions，则保留原数据
+    const finalAssertions = newAssertions.length > 0 ? newAssertions : originalAssertions;
+    
+    console.log('assertions数据处理:', {
+      original: originalAssertions.length,
+      new: newAssertions.length,
+      final: finalAssertions.length
+    });
+    
     const updatedStep = {
       ...originalStep,            // 保持原有数据
       ...stepData,                // 覆盖更新的数据
       step_id: stepId,           // 确保step_id不被修改
-      step_order: originalStep.step_order // 保留原始顺序
+      step_order: originalStep.step_order, // 保留原始顺序
+      assertions: finalAssertions // 🔥 使用智能合并的assertions
     };
     
     console.log('📝 步骤数据对比:', {
-      before: { name: originalStep.step_name, host: originalStep.params?.host, method: originalStep.params?.method },
-      after: { name: updatedStep.step_name, host: updatedStep.params?.host, method: updatedStep.params?.method }
+      before: { name: originalStep.step_name, assertions: originalStep.assertions?.length || 0 },
+      after: { name: updatedStep.step_name, assertions: updatedStep.assertions?.length || 0 }
     });
     
     steps.value[stepIndex] = updatedStep;
@@ -313,22 +370,10 @@ const handleStepSaved = (stepId: number, stepData: any) => {
     steps.value.push(stepData);
   }
   
-  // 同步更新 caseGroupData 中的步骤数据（如果存在）
-  if (caseGroupData.value && caseGroupData.value.steps) {
-    // 首先尝试通过step_id查找步骤
-    let caseStepIndex = caseGroupData.value.steps.findIndex(step => 
-      step.step_id === stepId
-    );
-
-    if (caseStepIndex !== -1) {
-      // 同样只更新必要的字段
-      caseGroupData.value.steps[caseStepIndex] = {
-        ...caseGroupData.value.steps[caseStepIndex],
-        ...stepData,
-        step_id: stepId // 确保ID一致性
-      };
-    }
-  }
+  // ❌ 移除对caseGroupData的同步更新，避免循环触发
+  // 因为caseGroupData.steps会触发props.stepsData变化，导致循环
+  // 让用例组保存时统一更新caseGroupData
+  console.log('🎯 跳过caseGroupData同步，避免循环触发');
 };
 
 // 折叠面板变更事件 - 简化版，只负责展示面板
@@ -356,8 +401,29 @@ const setCaseGroupDetail = (response: CaseGroupDetailResponse) => {
     
     // 更新步骤数据
     if (caseGroupData.value?.steps && caseGroupData.value.steps.length > 0) {
-      // 直接使用API返回的步骤数据，因为它们已经符合CaseStep格式
-      steps.value = caseGroupData.value.steps;
+      // 处理API返回的步骤数据，确保step_name字段存在且不为空
+      const processedSteps = caseGroupData.value.steps.map(step => {
+        // 创建副本避免修改原对象
+        const processedStep = { ...step };
+        
+        // 修复：确保step_name字段存在且不为空
+        if (!processedStep.step_name || processedStep.step_name === '') {
+          // 如果缺少step_name，尝试从其他字段获取或使用默认名称
+          processedStep.step_name = step.step_name || `步骤${step.step_order || '未知'}`;
+          console.log(`🔧 修复步骤名称: ID=${step.step_id}, 设置name=${processedStep.step_name}`);
+        }
+        
+        return processedStep;
+      });
+      
+      // console.log('📊 处理后的步骤数据:', processedSteps.map(s => ({
+      //   id: s.step_id, 
+      //   name: s.step_name, 
+      //   order: s.step_order
+      // })));
+      
+      // 使用处理后的步骤数据
+      steps.value = processedSteps;
       
       // 默认不展开任何步骤
       activeNames.value = [];
