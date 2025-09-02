@@ -364,17 +364,17 @@ const methodOptions = [
 
 // 更新请求配置
 const updateRequestConfig = (config: CaseStep) => {
-  console.log('stepDetail收到子组件paramCard更新的配置:', {
-    stepId: config.step_id,
-    hasAssertions: config.assertions?.length > 0,
-    assertionsCount: config.assertions?.length || 0
-  });
+  // console.log('stepDetail收到子组件paramCard更新的配置:', {
+  //   stepId: config.step_id,
+  //   hasAssertions: config.assertions?.length > 0,
+  //   assertionsCount: config.assertions?.length || 0
+  // });
 
   // 🔥 关键修复：增加防护，只有当子组件传递了有效的step_id时才进行合并
   // 这可以防止子组件在自身初始化期间（此时step_id可能为0）发出的事件污染父组件状态
   const configStepId = config.step_id || (config as any).id || 0;
   if (configStepId === 0) {
-    console.warn('⚠️ 拦截到来自子组件的无效更新（stepId为0），已跳过');
+    // console.warn('⚠️ 拦截到来自子组件的无效更新（stepId为0），已跳过');
     return;
   }
   
@@ -542,11 +542,13 @@ const handleRun = async () => {
 
     // 发送运行请求
     const res = await runCaseStep(step.value.step_id);
+    console.log('运行步骤响应:', res);
     if (res?.code === 200) {
       ElMessage.success('运行成功');
       
       // 直接将API响应结果赋值给apiResponse
       apiResponse.value = res;
+      console.log('更新后的apiResponse:', apiResponse.value);
     } else {
       ElMessage.error(`运行失败: ${res?.message || '未知错误'}`);
     }

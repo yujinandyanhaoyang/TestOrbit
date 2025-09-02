@@ -52,6 +52,42 @@
       layout="total, sizes, prev, pager, next, jumper"
       :total="total">
     </el-pagination>
+
+    <!-- 批量运行模式选择对话框 -->
+    <el-dialog
+      v-model="showRunModeDialog"
+      title="选择运行模式"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="run-mode-selector">
+        <p>您已选择 <strong>{{ multipleSelection.length }}</strong> 个用例，请选择运行模式：</p>
+        
+        <el-radio-group v-model="selectedRunMode" class="run-mode-options">
+          <el-radio :label="0" class="run-mode-option">
+            <div class="mode-info">
+              <div class="mode-title">🚀 并行运行</div>
+              <div class="mode-desc">多个用例同时执行，速度更快</div>
+            </div>
+          </el-radio>
+          <el-radio :label="1" class="run-mode-option">
+            <div class="mode-info">
+              <div class="mode-title">📝 串行运行</div>
+              <div class="mode-desc">用例按顺序逐个执行，更稳定</div>
+            </div>
+          </el-radio>
+        </el-radio-group>
+      </div>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showRunModeDialog = false">取消</el-button>
+          <el-button type="primary" @click="confirmBatchRun">
+            开始执行
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -93,6 +129,10 @@ const caseModuleStore = useCaseModuleStore()
 const tableData = ref<CaseGroupInfo[]>()
 const multipleTableRef = ref<TableInstance>()
 const multipleSelection = ref<CaseGroupInfo[]>([])
+
+// 批量运行模式选择对话框
+const showRunModeDialog = ref(false)
+const selectedRunMode = ref(0) // 默认选择并行模式 (0=并行, 1=串行)
 
 // 处理分页显示
 const handleSizeChange = (size: number) =>{
@@ -220,7 +260,8 @@ const handleBatchAction = async (actionType: string) => {
   // 根据操作类型执行不同的批量操作
   switch (actionType) {
     case 'run':
-      await handleBatchRun();
+      // 显示运行模式选择对话框
+      showRunModeDialog.value = true;
       break;
     case 'delete':
       // TODO: 实现批量删除
@@ -235,38 +276,48 @@ const handleBatchAction = async (actionType: string) => {
   }
 }
 
-// 批量运行用例
-const handleBatchRun = async () => {
+// 确认批量运行 - 用户选择运行模式后的处理
+const confirmBatchRun = async () => {
+  // 关闭对话框
+  showRunModeDialog.value = false;
+  
+  // 执行批量运行
+  await handleBatchRun(selectedRunMode.value);
+}
+
+// 批量运行用例 - 修改为接受运行模式参数
+const handleBatchRun = async (parallel: number = 0) => {
   try {
     // 获取选中的用例ID
     const caseIds = multipleSelection.value.map(item => item.id);
+    const modeText = parallel === 0 ? '并行' : '串行';
     
     // 更新加载提示
-    loadingText.value = `准备批量执行 ${caseIds.length} 个用例...`;
+    loadingText.value = `准备${modeText}执行 ${caseIds.length} 个用例...`;
     isRunning.value = true;
     
     // 启动进度模拟
     startProgressSimulation();
     
-    // 默认环境为1
-    const response = await runCaseGroup(caseIds, 1);
+    // 使用用户选择的执行模式
+    const response = await runCaseGroup(caseIds, parallel);
 
     if (response.code === 200) {
       // 停止进度模拟
       stopProgressSimulation();
       
       // 更新加载提示
-      loadingText.value = '所有用例执行完成，正在刷新数据...';
+      loadingText.value = `所有用例${modeText}执行完成，正在刷新数据...`;
       
       // 延迟一下，让用户看到执行完成的提示
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      ElMessage.success(`成功执行 ${caseIds.length} 个用例`);
+      ElMessage.success(`成功${modeText}执行 ${caseIds.length} 个用例`);
       getCaseListData();
       
       // TODO: 批量执行完成后可以考虑打开批量报告页面
     } else {
-      ElMessage.error(response.msg || '批量执行用例失败');
+      ElMessage.error(response.msg || `${modeText}执行用例失败`);
     }
   } catch (error) {
     console.error('批量执行用例出错:', error);
@@ -335,8 +386,8 @@ const handleRun = async (id: number) => {
     // 启动进度模拟
     startProgressSimulation();
     
-    // 默认环境为1
-    const response = await runCaseGroup([id], 1);
+    // 默认使用并行模式，parallel=0
+    const response = await runCaseGroup([id], 0);
 
     if (response.code === 200) {
       // 停止进度模拟
@@ -415,6 +466,50 @@ const openTestReport = (reportId: number) => {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+/* 批量运行模式选择对话框样式 */
+.run-mode-selector {
+  .run-mode-options {
+    margin-top: 20px;
+    
+    .run-mode-option {
+      display: block;
+      margin-bottom: 15px;
+      padding: 15px;
+      border: 1px solid #e4e7ed;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: #409eff;
+        background-color: #f0f9ff;
+      }
+      
+      .mode-info {
+        margin-left: 10px;
+        
+        .mode-title {
+          font-weight: 600;
+          font-size: 16px;
+          color: #303133;
+          margin-bottom: 5px;
+        }
+        
+        .mode-desc {
+          font-size: 14px;
+          color: #606266;
+          line-height: 1.4;
+        }
+      }
+    }
+    
+    // 选中状态样式
+    :deep(.el-radio__input.is-checked + .el-radio__label) .run-mode-option {
+      border-color: #409eff;
+      background-color: #ecf5ff;
+    }
   }
 }
 </style>

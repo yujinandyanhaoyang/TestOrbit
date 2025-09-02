@@ -45,7 +45,7 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     error.value = null
     
     try {
-      console.log('🔄 Store: 正在获取用例组详情，ID:', caseId)
+    //   console.log('🔄 Store: 正在获取用例组详情，ID:', caseId)
       const response = await getCaseGroupDetail(caseId)
       
       if (response.code === 200) {
@@ -64,11 +64,11 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
         
         // 🔥 更新 store 状态
         caseGroupDetail.value = response.results
-        console.log('✅ Store: 用例组详情加载成功:', {
-          name: response.results.name,
-          stepsCount: response.results.steps?.length || 0,
-          moduleId: response.results.module_id
-        })
+        // console.log('✅ Store: 用例组详情加载成功:', {
+        //   name: response.results.name,
+        //   stepsCount: response.results.steps?.length || 0,
+        //   moduleId: response.results.module_id
+        // })
         
         ElMessage.success(`成功加载用例组: ${response.results.name}`)
         return response.results
@@ -126,11 +126,11 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     // 🔥 更新 store 中的步骤数据
     caseGroupDetail.value.steps[stepIndex] = updatedStep
 
-    console.log(`✅ Store: 步骤 ${stepId} 已更新`, {
-      stepName: updatedStep.step_name,
-      assertionsCount: updatedStep.assertions?.length || 0,
-      hasParams: !!updatedStep.params
-    })
+    // console.log(`✅ Store: 步骤 ${stepId} 已更新`, {
+    //   stepName: updatedStep.step_name,
+    //   assertionsCount: updatedStep.assertions?.length || 0,
+    //   hasParams: !!updatedStep.params
+    // })
   }
 
   // 🔥 Action：添加新步骤
@@ -239,6 +239,29 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     console.log('🧹 Store: 用例组数据已清空')
   }
 
+  // 🔥 Action：初始化新用例组
+  function initNewCaseGroup(moduleId: string = '') {
+    // 初始化一个空的用例组
+    caseGroupDetail.value = {
+      id: -1, // 使用临时ID
+      name: '新建用例组',
+      module_id: moduleId,
+      steps: [],
+      remark: null,
+      latest_run_time: null,
+      updated: new Date().toISOString(),
+      module_related: [],
+      only_show: false
+    }
+    
+    console.log('✅ Store: 初始化新用例组', {
+      moduleId,
+      name: caseGroupDetail.value.name
+    })
+    
+    return caseGroupDetail.value
+  }
+
   // 🔥 Getter：根据ID获取步骤
   function getStepById(stepId: number) {
     return caseGroupDetail.value?.steps.find(
@@ -263,6 +286,7 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     addNewStep,
     removeStep,
     clearCaseGroupDetail,
+    initNewCaseGroup,
     
     // Getters
     getStepById

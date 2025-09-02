@@ -34,9 +34,9 @@ export interface AddCaseGroupRequest {
 
 // 用例组创建响应
 export type AddCaseGroupResponse = DataResponse<{
-  id: number;              // 创建的用例组ID
-  success: boolean;        // 是否成功
-  message?: string;        // 消息
+  case_id: number;         // 创建的用例组ID (后端实际返回字段)
+  message: string;         // 消息
+  success?: boolean;       // 是否成功
 }>;
 
 

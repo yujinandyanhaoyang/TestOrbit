@@ -118,7 +118,7 @@ watch(() => props.stepParams, (newParams, oldParams) => {
 // 组件挂载时手动处理初始化
 onMounted(() => {
   if (props.stepParams) {
-    console.log('paramCard组件挂载时初始化');
+    // console.log('paramCard组件挂载时初始化');
     initRequestConfig(props.stepParams);
   }
 });
@@ -149,11 +149,11 @@ const initRequestConfig = (caseStep: CaseStep) => {
   
   // CaseStep 对象包含 params 字段，它是 ApiStepParams 类型
   if (caseStep.params) {
-    console.log('处理步骤参数:', caseStep.params);
+    // console.log('处理步骤参数:', caseStep.params);
 
     // 🔥 修复：确保step_id正确设置（冗余但确保安全）
     stepParams.value.step_id = actualStepId;
-    console.log('✅ 二次确认stepParams.step_id:', stepParams.value.step_id);
+    // console.log('✅ 二次确认stepParams.step_id:', stepParams.value.step_id);
 
     // 处理请求头 - 从ExtendedHeaderParam[]转换为Record<string, string>格式
     if (caseStep.params.header_source && Array.isArray(caseStep.params.header_source)) {
@@ -244,7 +244,7 @@ const updateHeaders = (headers: Record<string, string>) => {
   // 同步更新本地状态，确保双向绑定
   requestHeaders.value = { ...headers };
   
-  console.log('🔄 Header更新，触发newstep事件');
+  // console.log('🔄 Header更新，触发newstep事件');
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -253,7 +253,7 @@ const updateHeaders = (headers: Record<string, string>) => {
 // 更新查询参数
 const updateQuerys = (querys: Record<string, string>) => {
   if (isInitializing.value) {
-    console.log('⏭️ 跳过初始化期间的Query更新事件');
+    // console.log('⏭️ 跳过初始化期间的Query更新事件');
     return;
   }
   
@@ -273,7 +273,7 @@ const updateQuerys = (querys: Record<string, string>) => {
   // 同步更新本地状态，确保双向绑定
   requestQuery.value = { ...querys };
   
-  console.log('🔄 Query更新，触发newstep事件');
+  // console.log('🔄 Query更新，触发newstep事件');
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -296,7 +296,7 @@ const updateBody = (body: any) => {
   // 同步更新本地状态，确保双向绑定
   requestBody.value = body;
   
-  console.log('🔄 Body更新，触发newstep事件');
+  // console.log('🔄 Body更新，触发newstep事件');
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -305,7 +305,7 @@ const updateBody = (body: any) => {
 // 更新Content-Type（Body组件可能需要）
 const updateContentType = (contentType: string) => {
   if (isInitializing.value) {
-    console.log('⏭️ 跳过初始化期间的ContentType更新事件');
+    // console.log('⏭️ 跳过初始化期间的ContentType更新事件');
     return;
   }
   
@@ -341,7 +341,7 @@ const updateContentType = (contentType: string) => {
     'Content-Type': contentType
   };
   
-  console.log('🔄 ContentType更新，触发newstep事件');
+  // console.log('🔄 ContentType更新，触发newstep事件');
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -350,7 +350,7 @@ const updateContentType = (contentType: string) => {
 // 更新断言
 const updateAssert = (assertRules: any[]) => {
   if (isInitializing.value) {
-    console.log('⏭️ 跳过初始化期间的Assert更新事件');
+    // console.log('⏭️ 跳过初始化期间的Assert更新事件');
     return;
   }
   

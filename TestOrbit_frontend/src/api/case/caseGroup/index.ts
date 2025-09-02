@@ -14,19 +14,20 @@ enum API {
     CASE_GROUP_URL = '/api-data/case-view',
     CASE_GROUP_COPY_URL = '/api-data/copy-cases',
     CASE_GROUP_CLEAR_URL = '/api-data/clean-deleted-cases',
-    CASE_GROUP_RUN_URL = '/api-data/run-api-cases',
+    CASE_GROUP_RUN_URL = '/api-data/batch-run-api-cases',
 
 }
 
 
 // 用例组相关接口
 // 运行用例组
-export const runCaseGroup = (caseIds: number[], envir:number): Promise<any> => {
+// parallel 0-串行，1-并行
+export const runCaseGroup = (case_ids:number[],parallel:number): Promise<any> => {
     return request.post(
         // 路径
         API.CASE_GROUP_RUN_URL,
         // 请求体
-        { case: caseIds, envir }
+        { case_ids, parallel }
     )
 }
 // 新建用例组

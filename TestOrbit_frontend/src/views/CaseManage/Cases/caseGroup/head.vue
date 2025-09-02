@@ -1,6 +1,7 @@
 
 <template>
     <div class="case-group-head">
+        <h2 class="page-title">{{ props.isNew ? '创建新用例组' : '编辑用例组' }}</h2>
         <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px" inline>
           <el-form-item label="用例组名称" prop="name" required>
             <el-input
@@ -18,10 +19,12 @@
           /> 
         </el-form>
         <div class="action-buttons">
-          <el-button type="primary" @click="openDialog('global')">全局变量</el-button>
-          <el-button type="primary" @click="openDialog('region')">场景变量</el-button>
-          <el-button type="primary">一键运行</el-button>
-          <el-button type="primary" @click="handleSave">保存</el-button>
+          <template v-if="!props.isNew">
+            <el-button type="primary" @click="openDialog('global')">全局变量</el-button>
+            <el-button type="primary" @click="openDialog('region')">场景变量</el-button>
+            <el-button type="primary">一键运行</el-button>
+          </template>
+          <el-button type="primary" @click="handleSave">{{ props.isNew ? '创建' : '保存' }}</el-button>
           <el-button type="primary" @click="handleAddStep">添加步骤</el-button>
         </div>
     </div>
@@ -58,6 +61,7 @@ const props = defineProps<{
   caseName: string        // 用例组名称
   moduleId?: string        // 模块ID
   listDetailRef?: any      // ListDetail组件引用
+  isNew?: boolean          // 新增标志
 }>()
 
 // 引入自定义组件
@@ -215,34 +219,31 @@ const handleSave = async () => {
   }
   
   // 组装请求体数据 - 根据 AddCaseGroupRequest 接口定义
-  const requestData = {
+  const requestData: any = {
     name: formData.name,            // 用例组名称
     module_id: formData.module_id,  // 模块ID
     env_id: 1,                      // 环境ID，暂时写死为1
-    case_id: props.caseId,          // 用例组ID，更新时需要
     steps                           // 测试步骤列表
   };
   
-  // console.log('🚀 准备保存的数据:', requestData);
-  // console.log('📋 步骤详情:', steps.map((s: any) => ({
-  //   name: s.step_name,
-  //   hasStepId: !!s.step_id,
-  //   stepId: s.step_id,
-  //   isNew: !s.step_id ? '新步骤(无ID)' : s.step_id < 0 ? '临时步骤(负ID)' : '已有步骤(正ID)'
-  // })));
+  // 如果是编辑模式而非新建模式，添加case_id参数
+  if (!props.isNew && props.caseId) {
+    requestData.case_id = props.caseId;
+  }
   
   // 使用addCaseGroup提交
   try {
     const response = await addCaseGroup(requestData);
     if (response.code === 200) {
-      ElMessage.success('用例组保存成功');
-      console.log('保存成功:', response.results);
+      // 根据模式显示不同的成功消息
+      ElMessage.success(props.isNew ? '用例组创建成功' : '用例组保存成功');
+      console.log(props.isNew ? '创建成功:' : '保存成功:', response.results);
       
-      // 🎯 关键：保存成功后重新获取最新的用例组详情
-      // 这样可以获取到后端分配的真实ID，替换临时ID
-      const caseId = props.caseId || response.results.id;
+      // 🔥 修复：获取正确的用例ID
+      // 对于新建模式，使用服务器返回的新ID；对于编辑模式，使用原有ID
+      const caseId = props.isNew ? response.results.case_id : props.caseId;
       if (caseId) {
-        console.log('🔄 重新获取用例组详情，更新步骤ID...');
+        console.log(`🔄 重新获取用例组详情，caseId: ${caseId}，更新步骤ID...`);
         
         try {
           // 重新从后端获取最新的用例组详情
@@ -255,24 +256,34 @@ const handleSave = async () => {
               isRealId: s.step_id > 0 ? '真实ID' : '临时ID'
             }))
           );
+          
+          // 如果是新建模式，通知父组件用例已创建并返回新ID
+          // 🔥 修复：使用正确的响应字段 case_id
+          if (props.isNew && response.results.case_id) {
+            emit('case-saved', response.results.case_id);
+          }
         } catch (fetchError) {
           console.error('❌ 重新获取用例组详情失败:', fetchError);
           // 即使重新获取失败，保存操作本身是成功的
+          // 对于新建模式，仍然要通知父组件创建成功
+          if (props.isNew && response.results.case_id) {
+            emit('case-saved', response.results.case_id);
+          }
+        }
+      } else {
+        console.warn('⚠️ 未能获取到有效的caseId');
+        // 对于新建模式，即使没有caseId也要通知父组件
+        if (props.isNew && response.results.case_id) {
+          emit('case-saved', response.results.case_id);
         }
       }
-      
-      // 如果是新建（没有case_id），可以使用返回的ID更新当前ID
-      if (!props.caseId && response.results.id) {
-        // 这里可以通过emit通知父组件ID已更新
-        emit('case-saved', response.results.id);
-      }
     } else {
-      ElMessage.error(response.msg || '保存失败，请重试');
-      console.error('保存失败:', response.msg);
+      ElMessage.error(response.msg || (props.isNew ? '创建失败' : '保存失败') + '，请重试');
+      console.error(props.isNew ? '创建失败:' : '保存失败:', response.msg);
     }
   } catch (error) {
-    ElMessage.error('保存请求发生错误，请重试');
-    console.error('保存请求失败:', error);
+    ElMessage.error(props.isNew ? '创建请求发生错误' : '保存请求发生错误' + '，请重试');
+    console.error(props.isNew ? '创建请求失败:' : '保存请求失败:', error);
   }
 }
  
@@ -290,6 +301,13 @@ const handleAddStep = () => {
 .case-group-head {
   padding: 15px;
   border-bottom: 1px solid #eee;
+  
+  .page-title {
+    margin: 0 0 20px 0;
+    font-size: 22px;
+    font-weight: 500;
+    color: #303133;
+  }
   
   .el-form {
     margin-bottom: 15px;

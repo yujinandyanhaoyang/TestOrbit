@@ -1,11 +1,12 @@
 from django.db import models
+from django.db.models import JSONField
 from utils.comDef import get_next_id
 from utils.comModel import ComTimeModel, ComModuleModel
-from utils.constant import WAITING
+from utils.constant import WAITING, SUCCESS, FAILED
 from project.models import Project
 from user.models import UserEditModel
 from config.models import Environment
-from user.models import ExpendUser 
+from user.models import ExpendUser
 
 
 class ApiModule(ComTimeModel, ComModuleModel):

@@ -5,10 +5,10 @@
       <el-button 
         type="primary" 
         size="small" 
-        @click="addTab('新建用例', '请在此创建新的测试用例')"
+        @click="createNewCaseGroup()"
       >
         <el-icon class="el-icon--left"><Plus /></el-icon>
-        新建用例
+        新建用例组
       </el-button>
     </div>
   </div>
@@ -47,8 +47,10 @@
       />
       <!-- 使用CaseGroupDetail组件显示用例详情 -->
       <CaseGroupDetail 
-        v-else-if="item.caseId" 
+        v-else-if="item.caseId || item.isNew" 
         :caseId="item.caseId" 
+        :is-new="item.isNew"
+        @case-saved="handleCaseSaved"
       />
       <!-- 默认情况下显示内容文本 -->
       <div v-else class="tab-content">
@@ -66,6 +68,7 @@ import CasesList from './caseGroupList.vue'
 import TestReport from './caseGroup/testReport.vue'
 import CaseGroupDetail from './caseGroup/index.vue'
 import { Plus } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { TabPaneName } from 'element-plus'
 
 // 定义标签页项目的类型
@@ -74,6 +77,7 @@ interface TabItem {
   name: string;        // 标签唯一标识符
   content: string;     // 标签内容
   caseId?: number;     // 可选的用例ID，用于标识与特定用例相关的标签
+  isNew?: boolean;     // 可选的新建标志，用于新建用例模式
   componentName?: string; // 可选的组件名称，用于动态渲染不同组件
   props?: Record<string, any>; // 可选的组件属性
 }
@@ -94,13 +98,15 @@ const editableTabs = ref<TabItem[]>([
  * @param caseId 可选的用例ID，用于标识具体打开的用例
  * @param componentName 可选的组件名称，用于动态渲染
  * @param props 可选的传递给组件的属性
+ * @param isNew 可选的新建标志，用于新建用例模式
  */
 const addTab = (
   title: string = '用例详情', 
   content: string = '用例详情内容', 
   caseId?: number,
   componentName?: string,
-  props?: Record<string, any>
+  props?: Record<string, any>,
+  isNew?: boolean
 ) => {
   // 如果提供了caseId，检查是否已经打开了该用例的标签
   if (caseId !== undefined) {
@@ -122,7 +128,8 @@ const addTab = (
       content: `这里是用例 #${caseId} 的详细信息`, // 实际应用中可能需要从API获取用例详情
       caseId: caseId,
       componentName: componentName,
-      props: props || { caseId }
+      props: props || { caseId },
+      isNew: isNew || false
     })
     
     // 自动切换到新标签
@@ -137,7 +144,8 @@ const addTab = (
       name: newTabName,
       content: content,
       componentName: componentName,
-      props: props
+      props: props || {},
+      isNew: isNew || false
     })
     
     // 自动切换到新标签
@@ -222,6 +230,42 @@ const openTestReport = (reportId: number) => {
 const openCaseGroup = (caseId: number) => {
   // 使用通用的addTab方法打开用例组
   addTab('用例组', '', caseId, 'CaseGroupDetail', { caseId })
+}
+
+/**
+ * 创建新的用例组
+ */
+const createNewCaseGroup = () => {
+  // 使用通用的addTab方法打开新建用例组界面
+  addTab('新建用例组', '创建一个新的用例组', undefined, 'CaseGroupDetail', { isNew: true }, true)
+}
+
+/**
+ * 处理用例组保存事件，从新建模式切换到编辑模式
+ * @param caseId 新创建的用例ID
+ */
+const handleCaseSaved = (caseId: number) => {
+  // 查找当前打开的新建标签
+  const currentTabIndex = editableTabs.value.findIndex(tab => tab.name === editableTabsValue.value)
+  
+  if (currentTabIndex !== -1) {
+    // 获取当前标签
+    const currentTab = editableTabs.value[currentTabIndex]
+    
+    // 如果当前是新建模式，切换到编辑模式
+    if (currentTab.isNew) {
+      // 修改标签标题和属性，转为编辑模式
+      currentTab.title = `用例组 #${caseId}`
+      currentTab.isNew = false
+      currentTab.caseId = caseId
+      currentTab.props = { caseId, isNew: false }
+      
+      // 更新标签页列表
+      editableTabs.value[currentTabIndex] = currentTab
+      
+      ElMessage.success(`用例组 #${caseId} 创建成功，已切换至编辑模式`)
+    }
+  }
 }
 </script>
 

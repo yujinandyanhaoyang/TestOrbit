@@ -29,6 +29,7 @@ const props = defineProps<{
     code: number;
     msg: string | null;
     results?: {
+      message?: string;  // 添加message字段
       request_log?: {
         url: string;
         method: string;
@@ -67,18 +68,15 @@ import { watch } from 'vue';
 // 当props.apiResponse变化时更新组件数据
 watch(() => props.apiResponse, (newValue) => {
   if (newValue) {
+    console.log('🚀 apiResponse更新:', newValue);
     const requestLog = newValue.results?.request_log;
     if (requestLog) {
-      // 更新响应数据
+      // 更新响应数据 - 修复状态码映射
       responseData.value = {
-        status: newValue.code || 0,
-        time: requestLog.spend_time * 1000 || 0, // 转换为毫秒
-        size: typeof requestLog.response === 'string' 
-          ? requestLog.response.length 
-          : JSON.stringify(requestLog.response).length,
-        body: typeof requestLog.response === 'string' 
-          ? requestLog.response 
-          : JSON.stringify(requestLog.response),
+        status: requestLog.results ? (newValue.success ? 200 : 500) : 0, // 基于success状态判断
+        time: (requestLog.spend_time || 0) * 1000, // 转换为毫秒
+        size: JSON.stringify(newValue).length, // 计算完整响应的大小
+        body: JSON.stringify(newValue, null, 2), // 🔥 显示完整的 apiResponse，格式化输出
         headers: requestLog.res_header || {}
       };
       
@@ -89,7 +87,29 @@ watch(() => props.apiResponse, (newValue) => {
         headers: requestLog.header || {},
         body: requestLog.body || {}
       };
+      
+      console.log('📊 更新后的响应数据:', responseData.value);
+      console.log('📋 更新后的请求数据:', requestData.value);
+    } else {
+      // 如果没有request_log，也要尝试显示基础信息
+      console.warn('⚠️ 没有找到request_log，使用基础响应信息');
+      responseData.value = {
+        status: newValue.success ? 200 : (newValue.code || 500),
+        time: 0,
+        size: JSON.stringify(newValue).length,
+        body: JSON.stringify(newValue, null, 2), // 🔥 显示完整的 apiResponse
+        headers: {}
+      };
     }
+  } else {
+    // 清空数据
+    responseData.value = {
+      status: 0,
+      time: 0,
+      size: 0,
+      body: '',
+      headers: {}
+    };
   }
 }, { immediate: true });
 

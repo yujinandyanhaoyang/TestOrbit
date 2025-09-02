@@ -53,7 +53,8 @@ import { useCaseGroupStore } from '@/store/caseGroupStore'
 
 // 定义组件props
 const props = defineProps<{
-  caseId: number
+  caseId: number,
+  isNew?: boolean
 }>()
 
 // 使用Pinia store
@@ -183,7 +184,7 @@ const handleStepSaved = (stepId: number, stepData: any) => {
   }
   
   if (stepIndex !== -1) {
-    console.log('✅ 找到步骤，更新索引:', stepIndex);
+    // console.log('✅ 找到步骤，更新索引:', stepIndex);
     // 合并数据，确保保留原始数据的结构
     const originalStep = steps.value[stepIndex];
     
@@ -191,12 +192,12 @@ const handleStepSaved = (stepId: number, stepData: any) => {
     if (!stepData.step_name || stepData.step_name === '') {
       if (originalStep.step_name) {
         // 如果原步骤有名称，则保留原名称
-        console.log(`⚠️ 发现stepData.step_name为空，保留原步骤名称: "${originalStep.step_name}"`);
+        // console.log(`⚠️ 发现stepData.step_name为空，保留原步骤名称: "${originalStep.step_name}"`);
         stepData.step_name = originalStep.step_name;
       } else {
         // 如果原步骤也没有名称，则设置默认名称
         stepData.step_name = `步骤${originalStep.step_order || stepIndex + 1}`;
-        console.log(`⚠️ 发现步骤名称缺失，设置默认名称: "${stepData.step_name}"`);
+        // console.log(`⚠️ 发现步骤名称缺失，设置默认名称: "${stepData.step_name}"`);
       }
     }
     
