@@ -33,7 +33,6 @@
                 placeholder="Please input"
                 clearable
               />
-            <el-button type="primary" @click="handleSave">保存</el-button>
             <el-button type="primary" @click="handleRun">运行</el-button>
         </div>
         <!--请求参数配置卡片(Headers, Query Params, Body（目前规定仅支持json）, 前置脚本，后置脚本)-->
@@ -57,7 +56,7 @@ import { ElMessage } from 'element-plus'
 import ParamCard from './paramCard.vue'
 import ResponseCard from './responseCard.vue'
 import { addCaseStep, runCaseStep } from '@/api/case/caseStep'
-import type { CaseStep, AddCaseStepRequest, HttpMethod, HeaderSourceItem, QuerySourceItem, Rule } from '@/api/case/caseStep/types'
+import type { CaseStep, AddCaseStepRequest, HttpMethod} from '@/api/case/caseStep/types'
 
 // 定义接收的props
 const props = defineProps<{
@@ -76,14 +75,64 @@ const emit = defineEmits<{
 // 基本信息 - 使用props的值或默认值
 const stepName = ref<string>(props.stepName || '新建步骤')
 
+// 添加标志位来防止循环更新
+const isUpdatingFromProps = ref(false);
+
+// 监听stepName变化，实时通知父组件
+watch(stepName, (newStepName, oldStepName) => {
+  // 如果正在从props更新，跳过emit
+  if (isUpdatingFromProps.value) {
+    console.log('跳过props更新触发的emit');
+    return;
+  }
+  
+  // 确保有有效的步骤ID才发送更新事件
+  const currentStepId = props.stepId || step.value?.step_id || props.stepParams?.step_id;
+  
+  console.log('stepName变化调试信息:', {
+    newStepName,
+    oldStepName,
+    'props.stepId': props.stepId,
+    'step.value?.step_id': step.value?.step_id,
+    'props.stepParams?.step_id': props.stepParams?.step_id,
+    'currentStepId': currentStepId
+  });
+  
+  if (currentStepId && newStepName !== oldStepName) {
+    // console.log(`步骤 ${currentStepId} 的名称从 "${oldStepName}" 更新为: "${newStepName}"`);
+    // 实时通知父组件步骤名称变化，并传递正确的stepId
+    emit('update:stepName', newStepName);
+  }
+}, { immediate: false });
+
 // 监听props变化，更新内部状态
 watch(
   () => props.stepName,
   (newStepName) => {
+    console.log('props.stepName变化调试信息:', {
+      newStepName,
+      // 'stepName.value': stepName.value,
+      'props.stepId': props.stepId,
+      // 'props.stepParams?.step_id': props.stepParams?.step_id,
+      // 'stepParams.value.step_order':  props.stepParams?.step_order
+      'stepParams.value.params':  props.stepParams?.params.host
+    });
+    
+    // 只有当props传入的stepName确实发生变化，且与当前值不同时才更新
     if (newStepName && newStepName !== stepName.value) {
+      console.log(`从props接收到新的步骤名称: ${newStepName}, 当前值: ${stepName.value}, 步骤ID: ${props.stepId}`);
+      
+      // 设置标志位，防止触发emit
+      isUpdatingFromProps.value = true;
       stepName.value = newStepName;
+      
+      // 下一个tick后清除标志位
+      setTimeout(() => {
+        isUpdatingFromProps.value = false;
+      }, 0);
     }
-  }
+  },
+  { immediate: true }
 );
 
 // 定义步骤参数，基于props或默认值
@@ -94,8 +143,11 @@ const step = ref<CaseStep>() // 步骤参数
 
 // 创建默认step对象的函数
 const createDefaultStep = (): CaseStep => {
+  // 优先使用props中的真实ID
+  const realStepId = props.stepId || props.stepParams?.step_id || 0;
+  
   return {
-    step_id: 0,  // 使用step_id而不是id
+    step_id: realStepId,  // 使用真实的step_id
     step_name: stepName.value || '新建步骤',
     step_order: 0,
     type: 'api',
@@ -145,6 +197,14 @@ if (!step.value) {
   step.value = createDefaultStep();
 }
 
+// 监听props.stepId变化，确保step_id保持正确
+watch(() => props.stepId, (newStepId) => {
+  if (newStepId && step.value && step.value.step_id !== newStepId) {
+    // console.log(`更新step_id从 ${step.value.step_id} 到 ${newStepId}`);
+    step.value.step_id = newStepId;
+  }
+}, { immediate: true });
+
 // 请求参数配置
 const requestConfig = ref<AddCaseStepRequest>({
   case_id: 0, // 初始化为不存在数据
@@ -170,14 +230,15 @@ watch(() => props.stepParams, (newParams) => {
       // 更新请求方法  
       method.value = newParams.params.method as HttpMethod;
 
-      // 更新步骤参数，确保使用正确的ID字段
+      // 更新步骤参数，确保使用正确的ID字段，优先使用props.stepId
+      const correctStepId = props.stepId || newParams.step_id || (newParams as any).id || 0;
+      
       step.value = {
         ...newParams,
-        step_id: newParams.step_id || (newParams as any).id || 0
+        step_id: correctStepId  // 确保使用正确的ID
       };
       
-      // 删除可能存在的多余id字段
-      delete (step.value as any).id;
+      // console.log(`stepParams更新，step_id设置为: ${correctStepId}`);
       
     } else {
       console.warn('CaseStep对象中没有params属性！');
@@ -200,6 +261,18 @@ watch([stepName, UrlInput, address, method], () => {
     
     // 更新请求配置中的steps（保持同步）
     requestConfig.value.steps = [step.value];
+    
+    // 🔥 关键修复：实时同步到父组件
+    if (step.value.step_id) {
+      console.log('🔄 实时同步步骤数据到父组件:', {
+        stepId: step.value.step_id,
+        stepName: step.value.step_name,
+        host: step.value.params.host,
+        method: step.value.params.method,
+        path: step.value.params.path
+      });
+      emit('stepSaved', step.value.step_id, step.value);
+    }
   }
 });
 
@@ -265,7 +338,9 @@ const updateRequestConfig = (config: CaseStep) => {
         host: UrlInput.value.trim() || config.params?.host || step.value.params?.host || '',
         path: address.value.trim() || config.params?.path || step.value.params?.path || '/',
         method: method.value || config.params?.method || step.value.params?.method || 'GET'
-      }
+      },
+      // 🔥 关键修复：正确合并assertions字段
+      assertions: config.assertions || step.value.assertions || []
     };
     
     // 删除可能存在的多余id字段
@@ -281,7 +356,9 @@ const updateRequestConfig = (config: CaseStep) => {
         host: UrlInput.value.trim() || config.params?.host || '',
         path: address.value.trim() || config.params?.path || '/',
         method: method.value || config.params?.method || 'GET'
-      }
+      },
+      // 🔥 确保assertions字段被正确设置
+      assertions: config.assertions || []
     };
     
     // 删除可能存在的多余id字段
@@ -291,34 +368,47 @@ const updateRequestConfig = (config: CaseStep) => {
   // 更新请求配置中的steps（保持同步）
   requestConfig.value.steps = [step.value];
   
+  // 🔥 关键修复：参数更新后立即同步到父组件
+  if (step.value && step.value.step_id) {
+    console.log('🔄 参数更新后同步到父组件:', {
+      stepId: step.value.step_id,
+      stepName: step.value.step_name,
+      hasBodySource: !!step.value.params?.body_source,
+      hasQuerySource: step.value.params?.query_source?.length > 0,
+      hasHeaderSource: step.value.params?.header_source?.length > 0,
+      assertionsCount: step.value.assertions?.length || 0 // 🔥 添加断言数量信息
+    });
+    emit('stepSaved', step.value.step_id, step.value);
+  }
+  
   // console.log('更新后的完整step对象:', step.value);
   // console.log('更新后的请求配置:', requestConfig.value);
 }
 
-// 保存步骤
-const handleSave = async () => {
+// 准备步骤数据并同步到父组件
+const handleSave = () => {
   try {
     // 检验必要数据
     if (!stepName.value.trim()) {
       ElMessage.warning('请输入步骤名称')
-      return
+      return false
     }
     
     if (!method.value) {
       ElMessage.warning('请选择请求方法')
-      return
+      return false
     }
     
     if (!UrlInput.value.trim()) {
       ElMessage.warning('请输入域名')
-      return
+      return false
     }
 
     // 检查step对象和params的完整性
     if (!step.value || !step.value.params) {
       ElMessage.warning('步骤信息不完整，请检查参数配置')
       console.error('step.value 或 step.value.params 不存在:', step.value)
-      return
+      return false
     }
 
     // 更新步骤基本信息（从页面输入框获取）
@@ -326,69 +416,63 @@ const handleSave = async () => {
     step.value.params.host = UrlInput.value.trim();
     step.value.params.path = address.value.trim() || '/';
     step.value.params.method = method.value;
-
-    // console.log('保存前的完整step对象:', JSON.stringify(step.value, null, 2));
-
-    // 设置请求参数
-    requestConfig.value.case_id = 23 // 暂时固定
-    requestConfig.value.env_id = 1 // 暂时固定
-    requestConfig.value.steps = [step.value]
     
-    console.log('保存步骤请求参数:', JSON.stringify(requestConfig.value, null, 2))
-
-    // 发送保存请求
-    const res = await addCaseStep(requestConfig.value)
+    // 通知父组件步骤数据已准备好
+    emit('stepSaved', step.value.step_id, step.value);
     
-    if (res?.code === 200) {
-      ElMessage.success('保存成功')
-      console.log('保存步骤响应:', res)
-      
-      // 通知父组件步骤名称已更新
-      emit('update:stepName', stepName.value);
-      
-      // 如果返回了步骤ID，更新本地step对象
-      if (res.data && res.data.step_id) {
-        step.value.step_id = res.data.step_id;
-        console.log('更新step ID为:', step.value.step_id);
-      }
-      
-      // 通知父组件步骤已保存，并传递完整的步骤数据
-      emit('stepSaved', step.value.step_id, step.value);
-    } else {
-      ElMessage.error(`保存失败: ${res?.message || '未知错误'}`)
-    }
+    return true
   } catch (error) {
-    console.error('保存步骤错误:', error)
-    ElMessage.error(`保存步骤错误: ${(error as Error).message || '未知错误'}`)
+    console.error('准备步骤数据错误:', error)
+    ElMessage.error(`准备步骤数据错误: ${(error as Error).message || '未知错误'}`)
+    return false
   }
 }
 
 // 运行测试
 const handleRun = async () => {
   try {
+    // 首先确保步骤数据已同步到父组件
+    const saveResult = handleSave();
+    if (!saveResult) {
+      ElMessage.warning('步骤数据准备不完整，无法运行');
+      return;
+    }
+    
     // 检查步骤是否存在
     if (!step.value || !step.value.step_id) {
       console.log('当前step_id:', step.value?.step_id);
-      ElMessage.warning('没有有效的步骤ID，请先保存步骤')
-      return
+      ElMessage.warning('没有有效的步骤ID，请先保存用例组');
+      return;
     }
 
+    // 提示用户运行前需要整体保存
+    ElMessage({
+      message: '数据已准备好，即将运行测试',
+      type: 'info',
+      duration: 2000
+    });
+
     // 发送运行请求
-    const res = await runCaseStep(step.value.step_id)
+    const res = await runCaseStep(step.value.step_id);
     if (res?.code === 200) {
-      ElMessage.success('运行成功')
-      // console.log('运行步骤响应:', res)
+      ElMessage.success('运行成功');
       
       // 直接将API响应结果赋值给apiResponse
       apiResponse.value = res;
     } else {
-      ElMessage.error(`运行失败: ${res?.message || '未知错误'}`)
+      ElMessage.error(`运行失败: ${res?.message || '未知错误'}`);
     }
   } catch (error) {
-    console.error('运行步骤错误:', error)
-    ElMessage.error(`运行步骤错误: ${(error as Error).message || '未知错误'}`)
+    console.error('运行步骤错误:', error);
+    ElMessage.error(`运行步骤错误: ${(error as Error).message || '未知错误'}`);
   }
 }
+
+// 向父组件暴露方法
+defineExpose({
+  handleSave,
+  getStepData: () => step.value  // 添加获取当前步骤数据的方法
+});
 
 </script>
 

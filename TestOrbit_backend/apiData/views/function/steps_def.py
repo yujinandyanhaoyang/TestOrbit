@@ -1,20 +1,7 @@
 import copy
-import datetime
-import json
-import os
 import time
-from urllib.parse import urlencode
-
-import requests
-from django.db.models import Max, F
-from django.db.models.functions import JSONObject
-from openpyxl import load_workbook
-from requests import ReadTimeout
-from rest_framework.response import Response
 
 from apiData.models import ApiCaseStep, ApiCase, ApiForeachStep
-from utils.comDef import get_proj_envir_db_data, db_connect, execute_sql_func, \
-    close_db_con, json_dumps, JSONEncoder, MyThread, json_loads, format_parm_type_v
 from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNING, SUCCESS, FAILED, DISABLED, \
     INTERRUPT, SKIP, API_CASE, API_FOREACH, TABLE_MODE, STRING, DIY_CFG, JSON_MODE, PY_TO_CONF_TYPE, CODE_MODE, \
     OBJECT, FAILED_STOP, WAITING, PRO_CFG, FORM_MODE, EQUAL, API_VAR, NOT_EQUAL, \
@@ -22,8 +9,6 @@ from utils.constant import USER_API, VAR_PARAM, HEADER_PARAM, HOST_PARAM, RUNNIN
 from utils.diyException import DiyBaseException, NotFoundFileError
 from utils.paramsDef import parse_param_value, run_params_code, parse_temp_params, get_parm_v_by_temp
 # 移除对 ProjectEnvirData 的导入，使用 Environment
-from config.models import Environment
-from user.models import UserCfg, UserTempParams
 from .step_assert import save_assert
 
 def create_api(step,env_id,case_id):

@@ -1,7 +1,7 @@
 import datetime
 
 from django.db import IntegrityError, transaction
-from django.db.models import  Max
+from django.db.models import Max
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -86,19 +86,57 @@ class ApiCaseViews(View):
                 steps_objs, foreach_steps = [], []
                 have_foreach = False
                 
-                print('进入保存用例步骤\t')
-                for step in steps:
+                # print('进入保存用例步骤\t')
+                
+                # 第一步：处理step_order冲突问题
+                # 为了避免step_order冲突，我们采用两阶段保存策略
+                # print('🔄 开始处理step_order冲突...')
+                
+                # 首先获取当前case下的最大step_order值
+                max_order = ApiCaseStep.objects.filter(case_id=case_id).aggregate(
+                    max_order=Max('step_order'))['max_order'] or 0
+                
+                # 临时step_order起始值，避免与现有步骤冲突
+                temp_order_start = max_order + 1000
+                
+                # 第一阶段：先用临时的step_order保存/更新所有步骤，避免冲突
+                step_id_mapping = {}  # 存储step在列表中的索引与step_id的映射
+                
+                for index, step in enumerate(steps):
                     s_type = step['type']
                     
                     if s_type == API:
-
-                        # 检查是否存在id，决定是更新还是创建
+                        # 暂时设置为临时的step_order，避免冲突
+                        original_step_order = step.get('step_order', index + 1)
+                        step['step_order'] = temp_order_start + index
+                        
+                        # 检查是否存在step_id，决定是更新还是创建
                         if step.get('step_id'):
                             step_id = step['step_id']
-                            print(f"找到现有步骤，步骤ID: { step['step_id'] }")
+                            # print(f"找到现有步骤，步骤ID: {step['step_id']}, 临时order: {step['step_order']}")
                         else:
-                            step_id = None      
+                            step_id = None
+                            # print(f"创建新步骤，临时order: {step['step_order']}")
+                        
                         step_id = save_step(step, step_id, env_id, case_id)  # 存储测试数据和基础测试用例
+                        
+                        # 记录映射关系：原始顺序 -> step_id
+                        step_id_mapping[original_step_order] = step_id
+                        # print(f"✅ 步骤保存完成，step_id: {step_id}, 原始order: {original_step_order}")
+                
+                # 第二阶段：按照前端传入的step_order重新分配正确的顺序值
+                # print('🔄 开始重新分配正确的step_order...')
+                
+                # 按照原始的step_order排序，重新分配连续的step_order
+                sorted_orders = sorted(step_id_mapping.keys())
+                
+                # 批量更新step_order为最终正确的值
+                for final_order, original_order in enumerate(sorted_orders, 1):
+                    step_id = step_id_mapping[original_order]
+                    ApiCaseStep.objects.filter(id=step_id).update(step_order=final_order)
+                    # print(f"✅ 更新步骤 {step_id} 的step_order: {original_order} -> {final_order}")
+                
+                # print('🎉 step_order冲突处理完成！')
 
 
                         # 暂时不考虑其他类型

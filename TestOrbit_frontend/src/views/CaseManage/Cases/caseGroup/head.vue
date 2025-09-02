@@ -23,7 +23,6 @@
           <el-button type="primary">一键运行</el-button>
           <el-button type="primary" @click="handleSave">保存</el-button>
           <el-button type="primary" @click="handleAddStep">添加步骤</el-button>
-          <el-button type="success" @click="handleSaveOrder">保存顺序</el-button>
         </div>
     </div>
 
@@ -189,34 +188,48 @@ const handleSave = async () => {
   let steps = [];
   
   if (props.listDetailRef && typeof props.listDetailRef.getStepsData === 'function') {
+    // 获取最新的步骤数据
     steps = props.listDetailRef.getStepsData();
-    console.log('从ListDetail获取到的步骤数据:');
-    console.log('- 步骤数量:', steps.length);
-    console.log('- 完整数据:', steps);
     
-    // 处理步骤数据的字段一致性问题：确保每个步骤都有 step_id 字段
+    // 处理步骤数据的字段一致性问题：
+    // 1. 新步骤（临时负数ID）：移除step_id，让服务器分配新ID
+    // 2. 已有步骤（正数ID）：保留step_id用于更新
     steps = steps.map((step: any) => {
-      // 如果步骤有 id 但没有 step_id，则添加 step_id = id
-      if (step.id && !step.step_id) {
-        step.step_id = step.id;
+      const processedStep = { ...step }; // 创建副本避免修改原对象
+      
+      // 检查是否是新步骤（我们用负数作为临时ID）
+      if (step.step_id && step.step_id < 0) {
+        // 新步骤：移除step_id让服务器分配新ID
+        delete processedStep.step_id;
+        console.log(`🆕 新步骤 "${step.step_name}" 移除临时ID，等待服务器分配真实ID`);
+      } else if (step.step_id && step.step_id > 0) {
+        // 已有步骤：保留step_id用于更新
+        console.log(`✏️ 已有步骤 "${step.step_name}" (ID: ${step.step_id}) 保持ID用于更新`);
+      } else if (step.id && !step.step_id) {
+        // 兼容性处理：如果有id但没有step_id，则添加step_id = id
+        processedStep.step_id = step.id;
+        console.log(`🔄 步骤 "${step.step_name}" 字段转换: id -> step_id`);
       }
-      return step;
+      
+      // 确保所有必要的字段都存在
+      if (!processedStep.params) {
+        console.warn(`步骤 ${step.step_name || '未命名'} 缺少params字段，使用默认值`);
+        processedStep.params = {}; // 确保params字段存在
+      }
+      
+      return processedStep;
     });
     
-    // 验证每个步骤的数据完整性
-    steps.forEach((step: any, index: number) => {
-      console.log(`步骤 ${index + 1} (step_id: ${step.step_id}, id: ${step.id}):`, {
-        step_name: step.step_name,
-        type: step.type,
-        params: step.params ? '有参数' : '无参数',
-        params_detail: step.params
-      });
-    });
+    // 检查是否有步骤数据
+    if (steps.length === 0) {
+      console.warn('没有找到任何步骤数据');
+    } else {
+      console.log(`获取到 ${steps.length} 个步骤的最新数据`);
+    }
   } else {
     console.warn('无法获取ListDetail组件引用或getStepsData方法');
-    console.log('props.listDetailRef:', props.listDetailRef);
     if (props.listDetailRef) {
-      console.log('listDetailRef的方法:', Object.keys(props.listDetailRef));
+      console.log('listDetailRef可用的方法:', Object.keys(props.listDetailRef));
     }
     // 使用空数组作为后备方案
     steps = [];
@@ -231,7 +244,13 @@ const handleSave = async () => {
     steps                           // 测试步骤列表
   };
   
-  console.log('准备保存的数据:', requestData);
+  console.log('🚀 准备保存的数据:', requestData);
+  console.log('📋 步骤详情:', steps.map((s: any) => ({
+    name: s.step_name,
+    hasStepId: !!s.step_id,
+    stepId: s.step_id,
+    isNew: !s.step_id ? '新步骤(无ID)' : s.step_id < 0 ? '临时步骤(负ID)' : '已有步骤(正ID)'
+  })));
   
   // 使用addCaseGroup提交
   try {
@@ -261,17 +280,6 @@ const handleAddStep = () => {
   emit('add-step');
 }
 
-// 保存顺序按钮处理函数
-const handleSaveOrder = () => {
-  // 触发保存顺序事件，ListDetail组件会监听此事件
-  emit('save-order');
-}
-
-// 处理步骤更新事件
-const handleStepsUpdated = (updatedSteps: any[]) => {
-  console.log('步骤列表已更新:', updatedSteps);
-  // 这里可以添加其他处理逻辑，比如保存到状态管理器等
-};
 
 </script>
 

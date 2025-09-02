@@ -53,7 +53,7 @@ const assertions = ref<Rule[]>([]) // 断言规则列表
 // 监听步骤参数变化
 watch(() => props.stepParams, (newParams) => {
   if (newParams) {
-    console.log('ParamCard接收到新的步骤参数:', newParams);
+    // console.log('ParamCard接收到新的步骤参数:', newParams);
     initRequestConfig(newParams);
   }
 }, { deep: true });
@@ -126,7 +126,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
 
     // 更新step_id
     stepParams.value.step_id = caseStep.step_id || 0;
-    console.log('更新后的stepParams.step_id:', stepParams.value.step_id);
+    // console.log('更新后的stepParams.step_id:', stepParams.value.step_id);
 
     // 处理请求头 - 从ExtendedHeaderParam[]转换为Record<string, string>格式
     if (caseStep.params.header_source && Array.isArray(caseStep.params.header_source)) {
@@ -302,13 +302,15 @@ const updateAssert = (assertRules: any[]) => {
   }
   
   // 处理断言数据：区分现有断言和新增断言
-  const processedAssertions: Rule[] = assertRules.map((rule, index) => {
+  const processedAssertions = assertRules.map((rule, index) => {
     const now = new Date().toISOString();
     
-    // 如果是新增的断言（没有id或id为负数）
-    if (!rule.id || rule.id < 0) {
-      return {
-        id: 0, // 新增断言的ID设为0，后端会自动生成
+    // 如果是新增的断言（没有id或id为负数/0）
+    if (!rule.id || rule.id <= 0) {
+      // 🔥 关键修复：新增断言不包含id字段，让服务器分配
+      console.log('🆕 新增断言，移除ID字段:', rule.expression);
+      const newAssertion = {
+        // ❌ 不设置id字段，让服务器分配
         type: rule.type || 'jsonpath',
         expression: rule.expression,
         operator: rule.operator,
@@ -318,9 +320,11 @@ const updateAssert = (assertRules: any[]) => {
         enabled: rule.enabled !== undefined ? rule.enabled : true,
         step: props.stepParams?.step_id || 0,
         display_text: `${rule.expression} ${rule.operator} ${rule.expected_value}`
-      } as Rule;
+      };
+      return newAssertion;
     } else {
       // 现有断言，保持原有结构，只更新修改时间
+      console.log('✏️ 已有断言，保留ID:', rule.id);
       return {
         ...rule,
         updated: now,
@@ -329,13 +333,16 @@ const updateAssert = (assertRules: any[]) => {
     }
   });
   
-  stepParams.value.assertions = processedAssertions;
+  stepParams.value.assertions = processedAssertions as any; // 类型断言：新增断言没有id字段
   
   // 同步更新本地状态，确保双向绑定
-  assertions.value = [...processedAssertions];
+  assertions.value = [...processedAssertions] as any; // 类型断言：新增断言没有id字段
   
-  // console.log('更新断言到stepParams.assertions:', stepParams.value.assertions);
-  // console.log('同步更新assertions:', assertions.value);
+  console.log('🔍 更新断言到stepParams.assertions:', stepParams.value.assertions.map((a: any) => ({
+    expression: a.expression,
+    hasId: 'id' in a,
+    id: a.id
+  })));
   
   // 通知父组件
   emit('newstep', stepParams.value);

@@ -61,7 +61,7 @@ class ApiViews(View):
 
         if step.get('step_id'):
             step_id = step['step_id']
-            # 更新操作：通过case_id和step_id查找步骤
+            # 更新操作：通过case_id和step_id查找步骤是否存在
             step_checked = ApiCaseStep.objects.filter(case_id=case_id, id=step_id).first()
 
             if not step_checked:

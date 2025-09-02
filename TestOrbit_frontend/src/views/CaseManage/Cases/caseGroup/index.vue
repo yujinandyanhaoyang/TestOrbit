@@ -93,9 +93,13 @@ watch(() => props.caseId, async (newCaseId) => {
 
 // 处理添加步骤事件
 const handleAddStep = () => {
+    console.log('🚀 handleAddStep被调用 (caseGroup/index.vue)');
     // 调用ListDetail组件的addNewStep方法
     if (listDetailRef.value) {
+        console.log('📞 准备调用ListDetail的addNewStep方法');
         listDetailRef.value.addNewStep();
+    } else {
+        console.warn('❌ listDetailRef.value为空，无法调用addNewStep');
     }
 };
 

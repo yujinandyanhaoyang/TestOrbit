@@ -12,7 +12,7 @@
         <template #item="{ element, index }">
           <div class="step-item">
             <el-collapse v-model="activeNames" @change="handleChange">
-              <el-collapse-item :name="(element.step_id || element.id || index).toString()">
+              <el-collapse-item :name="(element.step_id || (element as any).id || index).toString()">
                 <template #title>
                   <div class="step-header">
                     <el-icon class="drag-handle"><Rank /></el-icon>
@@ -21,14 +21,15 @@
                   </div>
                 </template>
                 <StepDetail 
-                  :step-id="element.step_id || element.id" 
+                  :key="`step-${element.step_id || (element as any).id || index}`"
+                  :step-id="element.step_id || (element as any).id" 
                   :step-name="element.step_name"
                   :stepParams="element"
-                  @update:step-name="updateStepName(element.step_id || element.id, $event)"
+                  @update:step-name="updateStepName(element.step_id || (element as any).id, $event)"
                   @step-saved="handleStepSaved"
                 />
                 <div class="step-actions">
-                  <el-button size="small" type="danger" @click.stop="removeStep(element.step_id || element.id)">删除步骤</el-button>
+                  <el-button size="small" type="danger" @click.stop="removeStep(element.step_id || (element as any).id)">删除步骤</el-button>
                 </div>
               </el-collapse-item>
             </el-collapse>
@@ -43,7 +44,7 @@
 import { ref, onMounted, defineExpose, watch } from 'vue'
 import StepDetail from './stepDetail.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Rank } from '@element-plus/icons-vue'
+import { Rank, Upload } from '@element-plus/icons-vue'
 import type { CollapseModelValue } from 'element-plus'
 // 引入draggable组件
 import draggable from 'vuedraggable'
@@ -87,51 +88,135 @@ watch(() => props.case_id, async (newCaseId) => {
 });
 
 // 监听stepsData变化，更新本地steps数据
-watch(() => props.stepsData, (newStepsData) => {
+watch(() => props.stepsData, (newStepsData, oldStepsData) => {
+  console.log('👀 stepsData变化监听触发:', { 
+    newStepsDataLength: newStepsData?.length || 0, 
+    currentStepsLength: steps.value.length,
+    oldStepsDataLength: oldStepsData?.length || 0
+  });
+  
+  // 只有在初始化时或者外部数据真正变化时才更新
+  // 避免因为本地添加步骤导致的重复更新
   if (newStepsData && newStepsData.length > 0) {
-    // console.log('接收到新的步骤数据:', newStepsData);
-    
-    // 直接使用API返回的步骤数据，因为它们已经符合CaseStep格式
-    steps.value = newStepsData;
-
-    // 默认不展开任何步骤
-    activeNames.value = [];
+    // 如果当前steps为空（初始化），则直接更新
+    if (steps.value.length === 0) {
+      console.log('📝 初始化steps数据:', newStepsData.length);
+      steps.value = newStepsData;
+      activeNames.value = [];
+    }
+    // 如果是外部真正的数据变化（比如重新获取API数据），则更新
+    else if (oldStepsData && oldStepsData.length !== newStepsData.length) {
+      console.log('📝 外部数据变化，更新steps数据，从', oldStepsData.length, '到', newStepsData.length);
+      steps.value = newStepsData;
+      activeNames.value = [];
+    } else {
+      console.log('⏭️ 忽略内部数据变化，保持当前步骤状态');
+    }
   }
 }, { immediate: true });
 
 
 // 步骤拖拽结束事件处理
-const onDragEnd = () => {
-  console.log('步骤顺序已更新:', steps.value);
-  ElMessage.success('步骤顺序已更新，请点击"保存顺序"按钮保存');
-};
+const onDragEnd = async () => {
+  // 首先更新本地steps数组中的顺序
+  const updatedSteps = steps.value.map((step, index) => ({
+    ...step,
+    step_order: index + 1  // 从1开始编号
+  }));
+  
+  // 更新本地状态
+  steps.value = updatedSteps;
 
-// 保存步骤顺序
-const saveStepOrder = () => {
-  // 这里可以添加API调用来保存步骤顺序到后端
-  console.log('保存步骤顺序:', steps.value.map(step => step.step_order));
-  ElMessage.success('步骤顺序已保存');
+  // 同步更新 caseGroupData 中的步骤数据（如果存在）
+  if (caseGroupData.value && caseGroupData.value.steps) {
+    caseGroupData.value.steps = updatedSteps;
+  }
+  
+  // 触发每个步骤的更新以确保子组件同步
+  for (const step of updatedSteps) {
+    await handleStepSaved(step.step_id || (step as any).id, step);
+  }
+  
+  ElMessage.success('步骤顺序已更新');
 };
 
 // 添加新步骤
 const addNewStep = () => {
-  const newId = Math.max(...steps.value.map(step => step.step_id), 0) + 1;
-
+  console.log('🔥 addNewStep被调用，当前步骤数量:', steps.value.length);
+  
+  // 计算新步骤的顺序号（基于当前步骤数量）
+  const newOrder = steps.value.length + 1;
+  
+  // 创建临时本地ID（用于前端管理，保存时会被服务器分配的真实ID替换）
+  const tempId = Date.now(); // 使用时间戳作为临时ID
+  
   // 创建初始的空白步骤
-  const newStepTitle = `新步骤${newId}`;
+  const newStepTitle = `新步骤${newOrder}`;
   
-  // // 添加新步骤
-  // steps.value.push({
-  //   id: newId,
-  //   step_name: newStepTitle,
-  //   description: '' // 不再需要描述，因为使用StepDetail组件
-  // });
+  console.log('🆕 准备创建新步骤:', { tempId: -tempId, stepName: newStepTitle, order: newOrder });
   
-  // 新增步骤后，可以选择是否自动展开
-  // 如果需要自动展开新添加的步骤，保留下面这行
-  activeNames.value = [newId.toString()];
-  // 如果不需要自动展开，则使用：
-  // activeNames.value = [];
+  // 创建新步骤对象并添加到步骤列表
+  const newStep: CaseStep = {
+    // 使用负数作为临时ID，避免与服务器分配的正数ID冲突
+    step_id: -tempId, // 临时ID，保存后会被服务器分配的真实ID替换
+    step_name: newStepTitle,
+    step_order: newOrder,
+    type: 'api',
+    status: 0,
+    controller_data: null,
+    retried_times: null,
+    enabled: true,
+    results: {
+      message: null,
+      request_log: {
+        url: '',
+        body: {},
+        header: {},
+        method: 'GET',
+        results: null,
+        response: null,
+        res_header: {},
+        spend_time: 0
+      }
+    },
+    params: {
+      host: '',
+      path: '/',
+      method: 'GET',
+      timeout: 30000,
+      body_mode: 0,
+      host_type: 0,
+      query_mode: 0,
+      body_source: {},
+      expect_mode: 0,
+      header_mode: 0,
+      output_mode: 0,
+      query_source: [],
+      ban_redirects: false,
+      expect_source: [],
+      header_source: [],
+      output_source: []
+    },
+    timeout: null,
+    source: null,
+    assertions: []
+  };
+  
+  // 添加新步骤到数组
+  steps.value.push(newStep);
+  console.log('✅ 步骤已添加到steps数组，当前步骤总数:', steps.value.length);
+  
+  // 自动展开新添加的步骤（使用步骤的step_id）
+  activeNames.value = [newStep.step_id.toString()];
+  
+  // ❌ 移除重复的数据同步 - 不要同时维护两个数据源
+  // 因为 props.stepsData 来自 caseGroupData.steps，会导致数据重复
+  // if (caseGroupData.value && caseGroupData.value.steps) {
+  //   caseGroupData.value.steps.push(newStep);
+  //   console.log('✅ 步骤已同步到caseGroupData，caseGroupData.steps长度:', caseGroupData.value.steps.length);
+  // }
+  
+  console.log('🎯 addNewStep完成，最终steps数组:', steps.value.map(s => ({ id: s.step_id, name: s.step_name })));
   
   ElMessage.success('已添加新步骤');
 };
@@ -158,33 +243,80 @@ const removeStep = (id: number) => {
 
 // 更新步骤名称
 const updateStepName = (stepId: number, newName: string) => {
-  const stepIndex = steps.value.findIndex(step => step.step_id === stepId);
+  // 尝试多种方式查找步骤
+  let stepIndex = steps.value.findIndex(step => step.step_id === stepId);
+  if (stepIndex === -1) {
+    // 如果通过step_id找不到，尝试通过id字段查找
+    stepIndex = steps.value.findIndex(step => (step as any).id === stepId);
+  }
+  
   if (stepIndex !== -1) {
     steps.value[stepIndex].step_name = newName;
+  }
+  
+  // 同时更新 caseGroupData 中的步骤名称（如果存在）
+  if (caseGroupData.value && caseGroupData.value.steps) {
+    let caseStepIndex = caseGroupData.value.steps.findIndex(step => 
+      step.step_id === stepId
+    );
+    if (caseStepIndex === -1) {
+      caseStepIndex = caseGroupData.value.steps.findIndex(step => 
+        (step as any).id === stepId
+      );
+    }
+    if (caseStepIndex !== -1) {
+      caseGroupData.value.steps[caseStepIndex].step_name = newName;
+    }
   }
 };
 
 // 处理步骤保存事件
 const handleStepSaved = (stepId: number, stepData: any) => {
-  console.log(`步骤 ${stepId} 已保存，更新数据`);
+  console.log('🔄 handleStepSaved被调用:', { 
+    stepId, 
+    stepName: stepData.step_name,
+    currentStepsIds: steps.value.map(s => ({ id: s.step_id, name: s.step_name }))
+  });
   
-  // 更新 steps 数组中对应步骤的数据
-  const stepIndex = steps.value.findIndex(step => step.step_id === stepId);
+  // 首先尝试通过step_id查找步骤
+  let stepIndex = steps.value.findIndex(step => step.step_id === stepId);
+  console.log('📍 通过step_id查找结果:', stepIndex);
+  
+  // 如果找不到，再尝试通过id字段查找
+  if (stepIndex === -1) {
+    stepIndex = steps.value.findIndex(step => (step as any).id === stepId);
+    console.log('📍 通过id字段查找结果:', stepIndex);
+  }
+  
   if (stepIndex !== -1) {
-    // 只更新必要的字段，保持step_id不变
-    steps.value[stepIndex] = {
-      ...steps.value[stepIndex], // 保持原有数据
-      ...stepData, // 覆盖更新的数据
-      step_id: stepId // 确保step_id不被修改
+    console.log('✅ 找到步骤，更新索引:', stepIndex);
+    // 合并数据，确保保留原始数据的结构
+    const originalStep = steps.value[stepIndex];
+    const updatedStep = {
+      ...originalStep,            // 保持原有数据
+      ...stepData,                // 覆盖更新的数据
+      step_id: stepId,           // 确保step_id不被修改
+      step_order: originalStep.step_order // 保留原始顺序
     };
-    console.log(`已更新步骤 ${stepId} 的数据`);
+    
+    console.log('📝 步骤数据对比:', {
+      before: { name: originalStep.step_name, host: originalStep.params?.host, method: originalStep.params?.method },
+      after: { name: updatedStep.step_name, host: updatedStep.params?.host, method: updatedStep.params?.method }
+    });
+    
+    steps.value[stepIndex] = updatedStep;
   } else {
-    console.warn(`未找到步骤 ${stepId}`);
+    // 如果找不到匹配的步骤，添加一个新步骤
+    console.log(`找不到ID为${stepId}的步骤，添加新步骤`);
+    stepData.step_id = stepId;
+    stepData.step_order = steps.value.length + 1;
+    steps.value.push(stepData);
   }
   
   // 同步更新 caseGroupData 中的步骤数据（如果存在）
   if (caseGroupData.value && caseGroupData.value.steps) {
-    const caseStepIndex = caseGroupData.value.steps.findIndex(step => 
+    // 首先尝试通过step_id查找步骤
+    let caseStepIndex = caseGroupData.value.steps.findIndex(step => 
       step.step_id === stepId
     );
 
@@ -195,13 +327,8 @@ const handleStepSaved = (stepId: number, stepData: any) => {
         ...stepData,
         step_id: stepId // 确保ID一致性
       };
-      console.log(`已同步更新 caseGroupData 中的步骤 ${stepId}`);
     }
   }
-  
-  // 移除这些调试日志，避免输出过多信息
-  // console.log('更新后的caseGroupData.steps:', caseGroupData.value.steps);
-  // console.log('更新后的steps数组:', steps.value);
 };
 
 // 折叠面板变更事件 - 简化版，只负责展示面板
@@ -224,39 +351,129 @@ const fetchCaseGroupDetail = async (groupId: number) => {
 
 // 提供给父组件的方法，用于设置用例组详情
 const setCaseGroupDetail = (response: CaseGroupDetailResponse) => {
-  // console.log('setCaseGroupDetail被调用，正在处理获取的Response。传入的response:', response);
   if (response.code === 200) {
     caseGroupData.value = response.results;
     
     // 更新步骤数据
     if (caseGroupData.value?.steps && caseGroupData.value.steps.length > 0) {
-      // console.log('用例组详情中的步骤数据:', caseGroupData.value.steps);
-
       // 直接使用API返回的步骤数据，因为它们已经符合CaseStep格式
       steps.value = caseGroupData.value.steps;
       
       // 默认不展开任何步骤
       activeNames.value = [];
-    } else {
-      console.log('setCaseGroupDetail: 没有步骤数据');
     }
-  } else {
-    console.warn('setCaseGroupDetail: 响应码不是200', response.code);
   }
 };
 
 // 获取当前的步骤数据
 const getStepsData = () => {
-  // 返回当前所有步骤数据
-  return steps.value;
+  // 确保返回最新的步骤数据，包含所有更新
+  // steps.value 中包含了通过handleStepSaved方法更新的数据
+  
+  // 1. 确保所有步骤数据的完整性
+  const currentSteps = steps.value.map((step, index) => {
+    const processedStep = { ...step }; // 创建副本避免修改原对象
+    
+    // 处理ID字段统一性
+    if (!processedStep.step_id && (step as any).id) {
+      processedStep.step_id = (step as any).id;
+    }
+    
+    // 确保step_order字段正确（基于当前索引）
+    processedStep.step_order = index + 1;
+    
+    // 确保必要的字段存在
+    if (!processedStep.params) {
+      console.warn(`步骤 ${step.step_name || '未命名'} 缺少params字段`);
+      // 使用默认的空params结构
+      processedStep.params = step.params || {
+        host: '',
+        path: '/',
+        method: 'GET',
+        timeout: 30000,
+        body_mode: 0,
+        host_type: 0,
+        query_mode: 0,
+        body_source: {},
+        expect_mode: 0,
+        header_mode: 0,
+        output_mode: 0,
+        query_source: [],
+        ban_redirects: false,
+        expect_source: [],
+        header_source: [],
+        output_source: []
+      } as any;
+    }
+    
+    // 删除可能存在的多余id字段，统一使用step_id
+    delete (processedStep as any).id;
+    
+    // 🎯 重要：这里不处理临时ID的移除逻辑
+    // 让head.vue中的保存逻辑来处理新步骤的ID移除
+    // 这样保持职责分离：getStepsData只负责获取数据，不负责数据转换
+    
+    return processedStep;
+  });
+  
+  console.log(`🔍 getStepsData: 准备提交 ${currentSteps.length} 个步骤数据`, 
+    currentSteps.map(s => ({ 
+      name: s.step_name, 
+      id: s.step_id, 
+      isNew: s.step_id && s.step_id < 0 ? '新步骤' : '已有步骤' 
+    }))
+  );
+  
+  return currentSteps;
+};
+
+// 保存步骤顺序的方法
+const saveStepOrder = () => {
+  // 确保步骤顺序是最新的
+  steps.value.forEach((step, index) => {
+    step.step_order = index + 1;
+  });
+  
+  ElMessage.success('步骤顺序已保存');
+  return true;
+};
+
+// 保存所有步骤数据的方法
+const saveAllSteps = async () => {
+  try {
+    // 获取所有展开的步骤的引用
+    const stepComponents = document.querySelectorAll('.step-item .el-collapse-item__wrap');
+    let allValid = true;
+    
+    // 如果有展开的步骤，先调用其handleSave方法
+    if (stepComponents && stepComponents.length > 0) {
+      console.log(`找到 ${stepComponents.length} 个可能展开的步骤组件`);
+      
+      // 这里我们无法直接访问Vue组件实例，而是通过emit事件的方式来同步数据
+      // 实际数据已经通过handleStepSaved方法更新到steps.value中
+    }
+    
+    if (!allValid) {
+      ElMessage.warning('部分步骤数据验证失败，请检查');
+      return false;
+    }
+    
+    // 返回所有步骤数据
+    return getStepsData();
+  } catch (error) {
+    console.error('保存所有步骤时出错:', error);
+    ElMessage.error('保存步骤数据失败');
+    return false;
+  }
 };
 
 // 公开方法给父组件调用
 defineExpose({
   addNewStep,
-  saveStepOrder,
   setCaseGroupDetail,
-  getStepsData  // 添加获取步骤数据的方法
+  getStepsData,    // 添加获取步骤数据的方法
+  saveStepOrder,   // 添加保存步骤顺序的方法
+  saveAllSteps     // 添加保存所有步骤数据的方法
 });
 </script>
 

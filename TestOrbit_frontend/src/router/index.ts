@@ -1,13 +1,12 @@
-import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    //重定向
+    //重定向到首页
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/home'
     },
     {
       path: '/login',
@@ -17,29 +16,27 @@ const router = createRouter({
     {
       path: '/home',
       name: 'HomePage',
-      component: () => import('@/views/Home/HomePage.vue'),
-      children: [
-        // 子路由将在HomePage的router-view中显示
-        {
-          path: '/ProjectManage',
-          component: () => import('@/views/ProjectManage/index.vue')
-        },
-        {
-          path: '/UserManage',
-          component: () => import('@/views/UserManage/index.vue'),
-        },
-        {
-          path: '/PressureTest',
-          component: () => import('@/views/PressureTest/index.vue')
-        },
-      ]
+      component: () => import('@/views/Home/HomePage.vue')
     },
     {
-      path:'/Case',
-      component: () => import('@/views/CaseManage/index.vue'),
-      children:[
-        
-      ]
+      path: '/ProjectManage',
+      name: 'ProjectManage',
+      component: () => import('@/views/ProjectManage/index.vue')
+    },
+    {
+      path: '/UserManage',
+      name: 'UserManage',
+      component: () => import('@/views/UserManage/index.vue')
+    },
+    {
+      path: '/PressureTest',
+      name: 'PressureTest',
+      component: () => import('@/views/PressureTest/index.vue')
+    },
+    {
+      path: '/Case',
+      name: 'CaseManage',
+      component: () => import('@/views/CaseManage/index.vue')
     }
   ],
 })
