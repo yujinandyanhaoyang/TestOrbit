@@ -67,14 +67,12 @@ urlpatterns = [
     path('copy-step-to-other-case', caseGroup.copy_step_to_other_case),
     path('case-sort-list', caseGroup.case_sort_list),
     path('set-case-position', caseGroup.set_case_position),
-
     path('search-api', caseStep.search_api),
     path('run-api-case-step', caseStep.run_api_case_step),
     path('search-case-by-api', caseStep.search_case_by_api),
-
     # 用例步骤管理
-    path('steps/add', case_steps.add_steps),            # 添加步骤
-    path('steps/update', case_steps.update_step),       # 更新步骤
+    path('steps/add', case_steps.add_steps),            
+    path('steps/update', case_steps.update_step),       
     
 
 ]

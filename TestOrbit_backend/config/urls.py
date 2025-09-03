@@ -5,7 +5,7 @@ from config import views_env
 app_name = "config"
 
 urlpatterns = [
-    # 旧接口，兼容现有前端
+    # 旧接口，兼容
     path('project-envir-data', views.get_project_envir_data),
     path('project-have-envir', views.get_project_have_envir),
     path('test-db-connect', views.test_db_connect),
@@ -14,8 +14,7 @@ urlpatterns = [
     path('get-index-statistics', views.get_index_statistics),
 
     #新接口 
-    path('env-view', views.EnvironmentView.as_view()),              # 基础环境管理（保留兼容性）
-    
+    path('env-view', views.EnvironmentView.as_view()),              
     # 统一管理全局和局部环境的CRUD
     path('env-overview',views_env.environment_overview),               
 

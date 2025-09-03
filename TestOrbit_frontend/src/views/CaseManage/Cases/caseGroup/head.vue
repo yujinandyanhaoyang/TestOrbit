@@ -85,7 +85,7 @@ const formData = reactive({
 // 监听props变化，更新表单数据
 watch(() => props.caseName, (newValue) => {
   if (newValue) {
-    // console.log('用例组名称更新为formData.name:', newValue);
+    // 
     formData.name = newValue;
   }
 }, { immediate: true });
@@ -95,7 +95,7 @@ watch(() => props.caseName, (newValue) => {
 const handleModuleChangeEvent = (data: { path: string[], moduleId: string, moduleInfo: any }) => {
   // 更新formData中的module_id
   formData.module_id = data.moduleId;
-  // console.log('模块选择已更新:', data);
+  // 
 };
 
 // 使用两个独立的布尔变量来控制对话框显示
@@ -108,7 +108,7 @@ const dialogVisibleType = ref<'global' | 'region' | null>(null);
 
 onMounted(() => {
   // 初始化时的操作，如果有需要
-  // console.log('head组件已挂载');
+  // 
 });
 
 /**
@@ -141,7 +141,7 @@ const closeDialog = () => {
  */
 const saveDialog = () => {
   // 这里可以添加保存逻辑
-  console.log('保存', dialogVisibleType.value, '变量配置');
+
   
   // 保存完成后关闭对话框
   closeDialog();
@@ -173,27 +173,27 @@ const handleSave = async () => {
       if (!processedStep.step_name || processedStep.step_name === '') {
         // 如果步骤名称为空，设置一个默认名称
         processedStep.step_name = `步骤${processedStep.step_order || ''}`;
-        console.log(`⚠️ 步骤名称为空，设置默认名称: "${processedStep.step_name}"`);
+
       }
       
       // 检查是否是新步骤（我们用负数作为临时ID）
       if (step.step_id && step.step_id < 0) {
         // 新步骤：移除step_id让服务器分配新ID
         delete processedStep.step_id;
-        console.log(`🆕 新步骤 "${processedStep.step_name}" 移除临时ID，等待服务器分配真实ID`);
+
       } else if (step.step_id && step.step_id > 0) {
         // 已有步骤：确保step_id = step.id，用于后端识别和更新
         if (step.id) {
           processedStep.step_id = step.id;
-          console.log(`✏️ 已有步骤 "${processedStep.step_name}" 设置step_id = ${step.id} (来自step.id)`);
+
         } else {
           processedStep.step_id = step.step_id;
-          console.log(`✏️ 已有步骤 "${processedStep.step_name}" 保持step_id = ${step.step_id}`);
+
         }
       } else if (step.id && !step.step_id) {
         // 兼容性处理：如果有id但没有step_id，则设置step_id = id
         processedStep.step_id = step.id;
-        console.log(`🔄 步骤 "${processedStep.step_name}" 设置step_id = ${step.id} (从id字段)`);
+
       }
       
       // 确保所有必要的字段都存在
@@ -205,13 +205,13 @@ const handleSave = async () => {
       return processedStep;
     });
     
-    console.log(`从Store获取到 ${steps.length} 个步骤的最新数据`);
+
   } else {
     console.warn('Store中没有找到用例组详情或步骤数据');
     
     // 降级：尝试从组件引用获取数据（向后兼容）
     if (props.listDetailRef && typeof props.listDetailRef.getStepsData === 'function') {
-      console.log('🔄 降级使用组件引用获取步骤数据');
+
       steps = props.listDetailRef.getStepsData();
     } else {
       steps = [];
@@ -237,25 +237,19 @@ const handleSave = async () => {
     if (response.code === 200) {
       // 根据模式显示不同的成功消息
       ElMessage.success(props.isNew ? '用例组创建成功' : '用例组保存成功');
-      console.log(props.isNew ? '创建成功:' : '保存成功:', response.results);
+
       
       // 🔥 修复：获取正确的用例ID
       // 对于新建模式，使用服务器返回的新ID；对于编辑模式，使用原有ID
       const caseId = props.isNew ? response.results.case_id : props.caseId;
       if (caseId) {
-        console.log(`🔄 重新获取用例组详情，caseId: ${caseId}，更新步骤ID...`);
+
         
         try {
           // 重新从后端获取最新的用例组详情
           await caseGroupStore.fetchCaseGroupDetail(caseId);
           
-          console.log('🎉 步骤信息已更新！当前所有步骤:', 
-            caseGroupStore.steps.map(s => ({ 
-              name: s.step_name, 
-              step_id: s.step_id,
-              isRealId: s.step_id > 0 ? '真实ID' : '临时ID'
-            }))
-          );
+
           
           // 如果是新建模式，通知父组件用例已创建并返回新ID
           // 🔥 修复：使用正确的响应字段 case_id

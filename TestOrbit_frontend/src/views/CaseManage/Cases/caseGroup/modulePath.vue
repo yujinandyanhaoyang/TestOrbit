@@ -64,13 +64,13 @@ const modulePlaceholder = computed(() => {
 
 // 监听moduleValue的变化，向父组件发送更新事件
 watch(moduleValue, (newValue, oldValue) => {
-  // console.log(`🔄 moduleValue变化: ${JSON.stringify(oldValue)} -> ${JSON.stringify(newValue)}`);
+  // 
   emit('update:moduleValue', newValue);
   
   // 当有值时，发送最后一级模块ID
   if (newValue && newValue.length > 0) {
     const selectedModuleId = newValue[newValue.length - 1];
-    // console.log(`📍 选中的模块ID: ${selectedModuleId}`);
+    // 
     
     const moduleInfo = findModuleByPath(newValue);
     
@@ -79,10 +79,10 @@ watch(moduleValue, (newValue, oldValue) => {
       const newModuleName = moduleInfo.label;
       if (moduleName.value !== newModuleName) {
         moduleName.value = newModuleName;
-        // console.log(`📝 更新模块名称: ${newModuleName}`);
+        // 
       }
     } else {
-      // console.log(`⚠️ 未在模块树中找到模块信息，保持当前名称: "${moduleName.value}"`);
+      // 
     }
     
     emit('moduleChange', {
@@ -92,10 +92,10 @@ watch(moduleValue, (newValue, oldValue) => {
     });
   } else {
     // 当清空选择时才清空名称
-    // console.log('🗑️ 清空模块选择');
+    // 
     if (moduleName.value !== '') {
       moduleName.value = '';
-      // console.log('📝 重置模块名称为空');
+      // 
     }
     emit('moduleChange', {
       path: [],
@@ -107,7 +107,7 @@ watch(moduleValue, (newValue, oldValue) => {
 
 // 监听props.moduleId，当外部传入moduleId变化时获取名称并更新选择器
 watch(() => props.moduleId, async (newValue) => {
-  // console.log(`moduleId变化: ${oldValue} -> ${newValue}`);
+  // 
   if (newValue) {
     await loadModuleNameById(newValue);
   } else {
@@ -120,7 +120,7 @@ watch(() => props.moduleId, async (newValue) => {
 // 监听项目ID变化，重新加载对应项目的模块树
 watch(() => caseModuleStore.selectedProjectId, async (newProjectId, oldProjectId) => {
   if (newProjectId !== oldProjectId && newProjectId) {
-    console.log(`🔄 项目ID变化: ${oldProjectId} -> ${newProjectId}，重新加载模块树`);
+
     // 清空当前已加载的标志，强制重新加载
     hasLoadedModuleTree.value = false;
     // 重新加载模块树
@@ -158,17 +158,17 @@ onMounted(async () => {
 const loadModuleNameById = async (moduleId: string) => {
   isLoading.value = true;
   try {
-    // console.log(`🔍 正在获取模块详情，ID: ${moduleId}`);
+    // 
     const response = await getTestModuleDetail(moduleId);
     
     if (response.code === 200 && response.success) {
       moduleName.value = response.results.data.name;
-      // console.log(`✅ 获取到模块名称: ${moduleName.value}`);
+      // 
 
       // 如果没有预选模块路径，则直接使用模块ID
       if (!moduleValue.value || moduleValue.value.length === 0) {
         moduleValue.value = [moduleId];
-        // console.log(`🎯 设置默认模块路径: [${moduleId}]`);
+        // 
       }
     } else {
       console.warn(`⚠️ 获取模块详情失败: ${response.msg}`);
@@ -194,7 +194,7 @@ const handleFocus = async () => {
   }
   
   if (!hasLoadedModuleTree.value) {
-    console.log('🎯 首次点击，加载模块树数据');
+
     await fetchCaseFolderTree();
     hasLoadedModuleTree.value = true;
   }
@@ -231,7 +231,7 @@ const fetchCaseFolderTree = async () => {
   try {
     // 获取当前选中的项目ID
     const currentProjectId = caseModuleStore.selectedProjectId;
-    console.log(`🌲 获取项目 ${currentProjectId} 的模块树`);
+
     
     // 调用API，传入项目ID参数
     const response = await getCaseFolderTree(currentProjectId || undefined);
@@ -241,20 +241,20 @@ const fetchCaseFolderTree = async () => {
         // 转换为级联选择器需要的格式
         const cascaderOptions = transformToCascaderOptions(response.results);
         options.value = cascaderOptions;
-        console.log(`📋 加载了 ${cascaderOptions.length} 个模块选项`);
+
         
         // 如果有moduleId，尝试在新加载的树中找到完整路径
         if (props.moduleId) {
           const path = findModulePath(props.moduleId);
           if (path) {
-            console.log(`🎯 在模块树中找到路径: ${path.join(' -> ')}，模块ID: ${props.moduleId}`);
+
             moduleValue.value = path;
             
             // 同时更新模块名称显示
             const moduleInfo = findModuleByPath(path);
             if (moduleInfo) {
               moduleName.value = moduleInfo.label;
-              console.log(`📝 设置模块名称: ${moduleName.value}`);
+
             }
           } else {
             console.warn(`⚠️ 在项目 ${currentProjectId} 的模块树中未找到模块 ${props.moduleId}`);

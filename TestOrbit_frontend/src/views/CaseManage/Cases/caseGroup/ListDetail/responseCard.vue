@@ -68,7 +68,7 @@ import { watch } from 'vue';
 // 当props.apiResponse变化时更新组件数据
 watch(() => props.apiResponse, (newValue) => {
   if (newValue) {
-    console.log('🚀 apiResponse更新:', newValue);
+
     const requestLog = newValue.results?.request_log;
     if (requestLog) {
       // 更新响应数据 - 修复状态码映射
@@ -88,8 +88,7 @@ watch(() => props.apiResponse, (newValue) => {
         body: requestLog.body || {}
       };
       
-      console.log('📊 更新后的响应数据:', responseData.value);
-      console.log('📋 更新后的请求数据:', requestData.value);
+
     } else {
       // 如果没有request_log，也要尝试显示基础信息
       console.warn('⚠️ 没有找到request_log，使用基础响应信息');

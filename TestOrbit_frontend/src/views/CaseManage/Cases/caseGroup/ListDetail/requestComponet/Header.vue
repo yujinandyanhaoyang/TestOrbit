@@ -119,7 +119,7 @@ const headers = ref<HeaderItem[]>([]);
 
 // 监听props变化
 watch(() => props.requestHeaders, (newHeaders) => {
-  // console.log('Header组件接收到新的请求头:', newHeaders);
+  // 
   
   if (newHeaders && Object.keys(newHeaders).length > 0) {
     // 转换为组件内部格式
@@ -134,12 +134,12 @@ watch(() => props.requestHeaders, (newHeaders) => {
     const emptyRows = headers.value.filter(item => item.key.trim() === '');
     headers.value = [...convertedHeaders, ...emptyRows];
     
-    // console.log('Header组件转换后的headers数据:', headers.value);
+    // 
   } else {
     // 如果没有数据，保留用户正在编辑的空行
     const emptyRows = headers.value.filter(item => item.key.trim() === '');
     headers.value = emptyRows.length > 0 ? emptyRows : [];
-    // console.log('Header组件没有接收到有效的请求头数据，保留空行');
+    // 
   }
 }, { immediate: true });
 

@@ -107,10 +107,10 @@ watch(() => props.stepParams, (newParams, oldParams) => {
     const oldStepId = oldParams?.step_id || (oldParams as any)?.id || 0;
     
     if (newStepId !== oldStepId) {
-      // console.log(`paramCard检测到step_id变化 (${oldStepId} -> ${newStepId})，执行初始化`);
+      // 
       initRequestConfig(newParams);
     } else {
-      console.log('⏭️ paramCard跳过重复初始化，step_id未变化:', newStepId);
+
     }
   }
 }, { deep: true }); // 移除 immediate: true
@@ -118,7 +118,7 @@ watch(() => props.stepParams, (newParams, oldParams) => {
 // 组件挂载时手动处理初始化
 onMounted(() => {
   if (props.stepParams) {
-    // console.log('paramCard组件挂载时初始化');
+    // 
     initRequestConfig(props.stepParams);
   }
 });
@@ -126,18 +126,14 @@ onMounted(() => {
 
 // 初始化请求配置
 const initRequestConfig = (caseStep: CaseStep) => {
-  // console.log('paramCard初始化请求配置，接收到的步骤数据:', {
-  //   step_id: caseStep.step_id,
-  //   id: (caseStep as any).id,
-  //   step_name: caseStep.step_name
-  // });
+  // 
   
   // 🔥 设置初始化标志，防止初始化期间的emit事件
   isInitializing.value = true;
   
   // 🔥 关键修复：兼容处理id和step_id字段，确保正确获取步骤ID
   const actualStepId = caseStep.step_id || (caseStep as any).id || 0;
-  // console.log('🔧 计算得到的实际步骤ID:', actualStepId);
+  // 
   
   // 🔥 优先设置stepParams的基础信息，特别是step_id
   stepParams.value = { 
@@ -145,15 +141,15 @@ const initRequestConfig = (caseStep: CaseStep) => {
     step_id: actualStepId  // 🔥 确保step_id字段正确设置
   };
   
-  // console.log('✅ stepParams.step_id已设置为:', stepParams.value.step_id);
+  // 
   
   // CaseStep 对象包含 params 字段，它是 ApiStepParams 类型
   if (caseStep.params) {
-    // console.log('处理步骤参数:', caseStep.params);
+    // 
 
     // 🔥 修复：确保step_id正确设置（冗余但确保安全）
     stepParams.value.step_id = actualStepId;
-    // console.log('✅ 二次确认stepParams.step_id:', stepParams.value.step_id);
+    // 
 
     // 处理请求头 - 从ExtendedHeaderParam[]转换为Record<string, string>格式
     if (caseStep.params.header_source && Array.isArray(caseStep.params.header_source)) {
@@ -164,9 +160,9 @@ const initRequestConfig = (caseStep: CaseStep) => {
         }
       });
       requestHeaders.value = headersObj;
-      // console.log('从header_source转换为Record格式:', requestHeaders.value);
+      // 
     } else {
-      console.log('没有header_source数据或格式不正确');
+
       requestHeaders.value = {};
     }
     
@@ -179,18 +175,18 @@ const initRequestConfig = (caseStep: CaseStep) => {
         }
       });
       requestQuery.value = queryObj;
-      // console.log('从query_source转换为Record格式:', requestQuery.value);
+      // 
     } else {
-      console.log('没有query_source数据或格式不正确');
+
       requestQuery.value = {};
     }
     
     // 处理请求体 - 直接使用body_source
     if (caseStep.params.body_source !== undefined) {
       requestBody.value = caseStep.params.body_source;
-      // console.log('设置body:', caseStep.params.body_source);
+      // 
     } else {
-      console.log('没有body_source数据');
+
       requestBody.value = {};
     }
   } else {
@@ -204,9 +200,9 @@ const initRequestConfig = (caseStep: CaseStep) => {
   // 处理断言
   if (caseStep.assertions && Array.isArray(caseStep.assertions)) {
     assertions.value = caseStep.assertions;
-    // console.log('✅ 设置assertions.value:', assertions.value.length, '个断言');
+    // 
   } else {
-    console.log('没有断言数据或格式不正确');
+
     assertions.value = [];
   }
   
@@ -215,7 +211,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
   const delay = actualStepId < 0 ? 200 : 100;
   setTimeout(() => {
     isInitializing.value = false;
-    // console.log(`🎯 ParamCard初始化完成，开始接受更新事件 (延迟${delay}ms)`);
+    // 
   }, delay);
 };
 
@@ -224,7 +220,7 @@ const initRequestConfig = (caseStep: CaseStep) => {
 // 更新请求头
 const updateHeaders = (headers: Record<string, string>) => {
   if (isInitializing.value) {
-    // console.log('⏭️ 跳过初始化期间的Header更新事件');
+    // 
     return;
   }
   
@@ -244,7 +240,7 @@ const updateHeaders = (headers: Record<string, string>) => {
   // 同步更新本地状态，确保双向绑定
   requestHeaders.value = { ...headers };
   
-  // console.log('🔄 Header更新，触发newstep事件');
+  // 
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -253,7 +249,7 @@ const updateHeaders = (headers: Record<string, string>) => {
 // 更新查询参数
 const updateQuerys = (querys: Record<string, string>) => {
   if (isInitializing.value) {
-    // console.log('⏭️ 跳过初始化期间的Query更新事件');
+    // 
     return;
   }
   
@@ -273,7 +269,7 @@ const updateQuerys = (querys: Record<string, string>) => {
   // 同步更新本地状态，确保双向绑定
   requestQuery.value = { ...querys };
   
-  // console.log('🔄 Query更新，触发newstep事件');
+  // 
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -282,7 +278,7 @@ const updateQuerys = (querys: Record<string, string>) => {
 // 更新请求体
 const updateBody = (body: any) => {
   if (isInitializing.value) {
-    console.log('⏭️ 跳过初始化期间的Body更新事件');
+
     return;
   }
   
@@ -296,7 +292,7 @@ const updateBody = (body: any) => {
   // 同步更新本地状态，确保双向绑定
   requestBody.value = body;
   
-  // console.log('🔄 Body更新，触发newstep事件');
+  // 
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -305,7 +301,7 @@ const updateBody = (body: any) => {
 // 更新Content-Type（Body组件可能需要）
 const updateContentType = (contentType: string) => {
   if (isInitializing.value) {
-    // console.log('⏭️ 跳过初始化期间的ContentType更新事件');
+    // 
     return;
   }
   
@@ -341,7 +337,7 @@ const updateContentType = (contentType: string) => {
     'Content-Type': contentType
   };
   
-  // console.log('🔄 ContentType更新，触发newstep事件');
+  // 
   
   // 通知父组件
   emit('newstep', stepParams.value);
@@ -350,7 +346,7 @@ const updateContentType = (contentType: string) => {
 // 更新断言
 const updateAssert = (assertRules: any[]) => {
   if (isInitializing.value) {
-    // console.log('⏭️ 跳过初始化期间的Assert更新事件');
+    // 
     return;
   }
   
@@ -365,7 +361,7 @@ const updateAssert = (assertRules: any[]) => {
     // 如果是新增的断言（没有id或id为负数/0）
     if (!rule.id || rule.id <= 0) {
       // 🔥 关键修复：新增断言不包含id字段，让服务器分配
-      console.log('🆕 新增断言，移除ID字段:', rule.expression);
+
       const newAssertion = {
         // ❌ 不设置id字段，让服务器分配
         type: rule.type || 'jsonpath',
@@ -381,7 +377,7 @@ const updateAssert = (assertRules: any[]) => {
       return newAssertion;
     } else {
       // 现有断言，保持原有结构，只更新修改时间
-      console.log('✏️ 已有断言，保留ID:', rule.id);
+
       return {
         ...rule,
         updated: now,
@@ -395,7 +391,7 @@ const updateAssert = (assertRules: any[]) => {
   // 同步更新本地状态，确保双向绑定
   assertions.value = [...processedAssertions] as any; // 类型断言：新增断言没有id字段
   
-  console.log('� Assert更新，触发newstep事件，断言数量:', processedAssertions.length);
+
   
   // 通知父组件
   emit('newstep', stepParams.value);

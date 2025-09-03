@@ -63,17 +63,17 @@ onMounted(async () => {
 // 监听caseId的变化，当从外部传入新的caseId时重新获取数据
 watch(() => props.caseId, async (newCaseId) => {
     if (!props.isNew && newCaseId) {
-        console.log('检测到caseId变化，重新加载数据:', newCaseId);
+
         await caseGroupStore.fetchCaseGroupDetail(newCaseId);
     }
 });
 
 // 处理添加步骤事件
 const handleAddStep = () => {
-    console.log('🚀 handleAddStep被调用 (caseGroup/index.vue)');
+
     // 调用ListDetail组件的addNewStep方法
     if (listDetailRef.value) {
-        console.log('📞 准备调用ListDetail的addNewStep方法');
+
         listDetailRef.value.addNewStep();
     } else {
         console.warn('❌ listDetailRef.value为空，无法调用addNewStep');

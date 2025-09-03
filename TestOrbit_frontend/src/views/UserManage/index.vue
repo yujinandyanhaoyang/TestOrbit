@@ -280,7 +280,6 @@ import type { ProjectInfo } from '@/api/project/types'
 import { ElMessage } from 'element-plus'
 import PageHeader from './PageHeader.vue'
 
-
 //定义用户列表
 const userList = ref<UserInfo[]>([])
 // 定义总用户数
@@ -346,6 +345,7 @@ const fetchProjects = async () => {
 onMounted(() => {
     fetchProjects()
     fetchUserList(1, 10)  // 初始加载第一页，每页10条数据
+
 })
 
 //定义获取用户信息方法
@@ -361,8 +361,7 @@ const fetchUserList = async (page: number, pageSize: number) => {
         statusLoading: false  // 添加状态加载标志
       }))
       totalUsers.value = response.results.total
-    //   console.log('用户列表:', userList.value)
-    } else {
+       } else {
       // 如果后端返回了错误信息
       ElMessage.error(response.msg || '获取用户列表失败')
     }
@@ -388,7 +387,6 @@ const handleSizeChange = (newSize: number) => {
 const handleSearch = (query: string) => {
   searchQuery.value = query
   // 这里可以添加搜索逻辑
-  console.log('搜索查询:', query)
 }
 
 // 打开添加用户对话框
@@ -520,7 +518,6 @@ const handleFilter = () => {
   // 暂时先弹窗提示
   ElMessage.info('筛选功能尚未实现，敬请期待')
 }
-
 
 </script>
 

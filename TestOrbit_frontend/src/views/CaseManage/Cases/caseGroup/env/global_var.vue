@@ -102,7 +102,7 @@ onMounted(() => {
 const fetchGlobalVariables = async () => {
     try {
         const res = await getGlobalVariables();
-        // console.log('获取全局变量列表:', res);
+        // 
         
         if (res.code === 200 && res.results?.data) {
             // 更新表格数据

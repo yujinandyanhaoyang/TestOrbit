@@ -115,7 +115,7 @@ const onDragEnd = async () => {
 
 // 添加新步骤
 const addNewStep = async () => {
-  console.log('🔥 addNewStep被调用，当前步骤数量:', steps.value.length);
+
   
   try {
     // 直接调用 Pinia store 的 addNewStep 方法
@@ -127,7 +127,7 @@ const addNewStep = async () => {
       activeNames.value = [newStep.step_id.toString()];
     }
     
-    console.log('🎯 addNewStep完成，最终steps数组:', steps.value.map(s => ({ id: s.step_id, name: s.step_name })));
+
     ElMessage.success('已添加新步骤');
   } catch (error) {
     console.error('❌ 添加新步骤失败:', error);
@@ -162,7 +162,7 @@ const removeStep = async (id: number) => {
 
 // 更新步骤名称
 const updateStepName = (stepId: number, newName: string) => {
-  console.log(`📝 更新步骤名称: ID=${stepId}, 新名称="${newName}"`);
+
   
   // 由于使用了computed，直接修改store中的数据
   const step = caseGroupStore.steps.find(step => 
@@ -171,7 +171,7 @@ const updateStepName = (stepId: number, newName: string) => {
   
   if (step) {
     step.step_name = newName;
-    console.log('✅ 步骤名称更新成功');
+
   } else {
     console.warn(`⚠️ 未找到步骤 ID: ${stepId}`);
   }
@@ -179,25 +179,20 @@ const updateStepName = (stepId: number, newName: string) => {
 
 // 处理步骤保存事件
 const handleStepSaved = (stepId: number, stepData: any) => {
-  console.log('🔄 handleStepSaved被调用:', { 
-    stepId, 
-    stepName: stepData.step_name,
-    assertionsCount: stepData.assertions?.length || 0,
-    currentStepsIds: steps.value.map(s => ({ id: s.step_id, name: s.step_name }))
-  });
+
   
   // 首先尝试通过step_id查找步骤
   let stepIndex = steps.value.findIndex(step => step.step_id === stepId);
-  console.log('📍 通过step_id查找结果:', stepIndex);
+
   
   // 如果找不到，再尝试通过id字段查找
   if (stepIndex === -1) {
     stepIndex = steps.value.findIndex(step => (step as any).id === stepId);
-    console.log('📍 通过id字段查找结果:', stepIndex);
+
   }
   
   if (stepIndex !== -1) {
-    // console.log('✅ 找到步骤，更新索引:', stepIndex);
+    // 
     // 合并数据，确保保留原始数据的结构
     const originalStep = steps.value[stepIndex];
     
@@ -205,12 +200,12 @@ const handleStepSaved = (stepId: number, stepData: any) => {
     if (!stepData.step_name || stepData.step_name === '') {
       if (originalStep.step_name) {
         // 如果原步骤有名称，则保留原名称
-        // console.log(`⚠️ 发现stepData.step_name为空，保留原步骤名称: "${originalStep.step_name}"`);
+        // 
         stepData.step_name = originalStep.step_name;
       } else {
         // 如果原步骤也没有名称，则设置默认名称
         stepData.step_name = `步骤${originalStep.step_order || stepIndex + 1}`;
-        // console.log(`⚠️ 发现步骤名称缺失，设置默认名称: "${stepData.step_name}"`);
+        // 
       }
     }
     
@@ -221,11 +216,7 @@ const handleStepSaved = (stepId: number, stepData: any) => {
     // 如果新数据的assertions为空，但原数据有assertions，则保留原数据
     const finalAssertions = newAssertions.length > 0 ? newAssertions : originalAssertions;
     
-    console.log('assertions数据处理:', {
-      original: originalAssertions.length,
-      new: newAssertions.length,
-      final: finalAssertions.length
-    });
+
     
     const updatedStep = {
       ...originalStep,            // 保持原有数据
@@ -235,15 +226,12 @@ const handleStepSaved = (stepId: number, stepData: any) => {
       assertions: finalAssertions // 🔥 使用智能合并的assertions
     };
     
-    console.log('📝 步骤数据对比:', {
-      before: { name: originalStep.step_name, assertions: originalStep.assertions?.length || 0 },
-      after: { name: updatedStep.step_name, assertions: updatedStep.assertions?.length || 0 }
-    });
+
     
     steps.value[stepIndex] = updatedStep;
   } else {
     // 如果找不到匹配的步骤，添加一个新步骤
-    console.log(`找不到ID为${stepId}的步骤，添加新步骤`);
+
     stepData.step_id = stepId;
     stepData.step_order = steps.value.length + 1;
     steps.value.push(stepData);
@@ -252,7 +240,7 @@ const handleStepSaved = (stepId: number, stepData: any) => {
   // ❌ 移除对caseGroupData的同步更新，避免循环触发
   // 因为caseGroupData.steps会触发props.stepsData变化，导致循环
   // 让用例组保存时统一更新caseGroupData
-  console.log('🎯 跳过caseGroupData同步，避免循环触发');
+
 };
 
 // 获取步骤状态类型
@@ -334,7 +322,7 @@ const saveAllSteps = async () => {
     
     // 如果有展开的步骤，先调用其handleSave方法
     if (stepComponents && stepComponents.length > 0) {
-      console.log(`找到 ${stepComponents.length} 个可能展开的步骤组件`);
+
       
       // 这里我们无法直接访问Vue组件实例，而是通过emit事件的方式来同步数据
       // 实际数据已经通过handleStepSaved方法更新到steps.value中

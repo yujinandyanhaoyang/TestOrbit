@@ -120,7 +120,7 @@ const querys = ref<queryItem[]>([]);
 // 监听props变化
 watch(() => props.requestQuery, (newQuery: Record<string, string> | undefined) => {
   if (newQuery && Object.keys(newQuery).length > 0) {
-    // console.log('Query组件接收到新的查询参数:', newQuery);
+    // 
     querys.value = Object.entries(newQuery).map(([key, value]) => ({
       key,
       value: String(value), // 确保value是字符串类型

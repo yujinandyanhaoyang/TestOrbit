@@ -136,7 +136,7 @@ const allAssertions = ref<Record<string, Rule[]>>({
 // 监听initialAssertions参数变化
 watch(() => props.initialAssertions, (currentAssertions) => {
   if (currentAssertions && currentAssertions.length > 0) {
-    // console.log('Assert组件接收到初始断言数据:', currentAssertions);
+    // 
     
     // 清空旧的断言分组数据
     allAssertions.value = {
@@ -160,13 +160,13 @@ watch(() => props.initialAssertions, (currentAssertions) => {
         assertionType.value = currentAssertions[0].type || 'jsonpath';
     }
     
-    // console.log('Assert组件分组后的断言数据:', allAssertions.value);
+    // 
     
     // 加载当前类型的断言到表格中
     loadAssertionItems();
   } else {
     // 没有初始断言数据，重置为空状态
-    // console.log('Assert组件没有接收到断言数据，重置为空状态');
+    // 
     allAssertions.value = {
         'jsonpath': [],
         'regex': [],
@@ -197,10 +197,10 @@ const loadAssertionItems = () => {
     const emptyRows = assertionItems.value.filter(item => item.expression.trim() === '');
     if (assertionItems.value.length === 0 && emptyRows.length === 0) {
         // 只有在没有任何断言项时才添加空行
-        console.log('没有断言数据，不自动添加空行，让用户主动添加');
+
     }
     
-    // console.log('加载断言项:', assertionItems.value);
+    // 
 };
 
 // 更改断言类型
@@ -300,7 +300,7 @@ const updateAssertions = () => {
             }
         });
     
-    console.log('Assert组件发送断言数据给父组件:', processedAssertions);
+
     
     // 发送给父组件
     emit('update:assert', processedAssertions);

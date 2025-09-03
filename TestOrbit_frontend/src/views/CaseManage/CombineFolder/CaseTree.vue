@@ -331,13 +331,13 @@ const fetchProjects = async () => {
         
         if (!caseModuleStore.selectedProjectId || !currentProjectExists) {
           const firstProject = projectOptions.value[0]
-          console.log(`🎯 自动选中第一个项目: ${firstProject.name} (ID: ${firstProject.id})`)
+
           caseModuleStore.setSelectedProjectId(firstProject.id)
           // 立即加载数据，因为这是初始化
           loadTreeData(firstProject.id)
         } else {
           // 如果已有有效的选中项目，加载该项目数据
-          console.log(`📌 保持当前选中项目: ID ${caseModuleStore.selectedProjectId}`)
+
           loadTreeData(caseModuleStore.selectedProjectId)
         }
       }
@@ -352,14 +352,14 @@ const fetchProjects = async () => {
 
 // 处理项目选择变更
 const handleProjectChange = (projectId: number | null) => {
-  console.log(`🔄 用户手动选择项目: ${projectId}`)
+
   // 只更新store中的项目ID，让watch监听器处理数据加载
   caseModuleStore.setSelectedProjectId(projectId)
 }
 
 // 监听store中项目ID的变化
 watch(() => caseModuleStore.selectedProjectId, (newVal, oldVal) => {
-  console.log(`📊 Store中项目ID变化: ${oldVal} -> ${newVal}`)
+
   // 只有在真正发生变化时才加载数据（避免初始化时的空加载）
   if (newVal !== oldVal && newVal !== null) {
     loadTreeData(newVal)

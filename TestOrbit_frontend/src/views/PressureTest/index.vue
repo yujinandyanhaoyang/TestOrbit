@@ -472,7 +472,7 @@ const formatTime = (date: Date) => {
 
 // 事件处理函数
 const startNewTest = () => {
-  console.log('开始新的压力测试')
+
   // 这里实现开始测试的逻辑
 }
 
@@ -484,7 +484,7 @@ const editConfiguration = () => {
 const saveConfiguration = () => {
   Object.assign(config, editConfig)
   showConfigDialog.value = false
-  console.log('配置已保存:', config)
+
 }
 
 const handleConfigClose = () => {
@@ -496,12 +496,12 @@ const switchChart = (chartType: string) => {
 }
 
 const viewTestDetails = (test: any) => {
-  console.log('查看测试详情:', test)
+
   // 这里实现查看详情的逻辑
 }
 
 const viewAllHistory = () => {
-  console.log('查看全部历史')
+
   // 这里实现查看全部历史的逻辑
 }
 

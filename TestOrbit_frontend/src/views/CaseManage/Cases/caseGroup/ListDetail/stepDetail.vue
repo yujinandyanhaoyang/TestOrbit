@@ -81,24 +81,17 @@ const isUpdatingFromProps = ref(false);
 watch(stepName, (newStepName, oldStepName) => {
   // 如果正在从props更新，跳过emit
   if (isUpdatingFromProps.value) {
-    console.log('跳过props更新触发的emit');
+
     return;
   }
   
   // 确保有有效的步骤ID才发送更新事件
   const currentStepId = props.stepId || step.value?.step_id || props.stepParams?.step_id;
   
-  console.log('stepName变化调试信息:', {
-    newStepName,
-    oldStepName,
-    'props.stepId': props.stepId,
-    'step.value?.step_id': step.value?.step_id,
-    'props.stepParams?.step_id': props.stepParams?.step_id,
-    'currentStepId': currentStepId
-  });
+
   
   if (currentStepId && newStepName !== oldStepName) {
-    // console.log(`步骤 ${currentStepId} 的名称从 "${oldStepName}" 更新为: "${newStepName}"`);
+    // 
     // 实时通知父组件步骤名称变化，并传递正确的stepId
     emit('update:stepName', newStepName);
   }
@@ -108,18 +101,11 @@ watch(stepName, (newStepName, oldStepName) => {
 watch(
   () => props.stepName,
   (newStepName) => {
-    // console.log('props.stepName变化调试信息:', {
-    //   newStepName,
-    //   // 'stepName.value': stepName.value,
-    //   'props.stepId': props.stepId,
-    //   // 'props.stepParams?.step_id': props.stepParams?.step_id,
-    //   // 'stepParams.value.step_order':  props.stepParams?.step_order
-    //   'stepParams.value.params':  props.stepParams?.params.host
-    // });
+    // 
     
     // 只有当props传入的stepName确实发生变化，且与当前值不同时才更新
     if (newStepName && newStepName !== stepName.value) {
-      // console.log(`从props接收到新的步骤名称: ${newStepName}, 当前值: ${stepName.value}, 步骤ID: ${props.stepId}`);
+      // 
       
       // 设置标志位，防止触发emit
       isUpdatingFromProps.value = true;
@@ -199,7 +185,7 @@ if (!step.value) {
 // 监听props.stepId变化，确保step_id保持正确
 watch(() => props.stepId, (newStepId) => {
   if (newStepId && step.value && step.value.step_id !== newStepId) {
-    // console.log(`更新step_id从 ${step.value.step_id} 到 ${newStepId}`);
+    // 
     step.value.step_id = newStepId;
   }
 }, { immediate: true });
@@ -231,7 +217,7 @@ watch(() => props.stepParams, (newParams) => {
     });
     
     if (lastProcessedParamsData.value !== currentParamsFingerprint) {
-      console.log('📝 stepDetail检测到params数据变化，更新界面');
+
       lastProcessedParamsData.value = currentParamsFingerprint;
       
       // 通过.params访问ApiStepParams的属性
@@ -257,16 +243,16 @@ watch(() => props.stepParams, (newParams) => {
           step_id: correctStepId  // 确保使用正确的ID
         };
         
-        // console.log(`✅ stepParams更新完成，step_id: ${correctStepId}`);
+        // 
         
       } else {
         console.warn('CaseStep对象中没有params属性！');
       }
     } else {
-      // console.log('⏭️ stepDetail跳过重复的params更新');
+      // 
     }
   } else {
-    console.log('没有接收到stepParams参数');
+
   }
 }, { deep: true, immediate: true });
 
@@ -277,7 +263,7 @@ const isSyncingToParent = ref(false);
 const resetSyncFlag = () => {
   setTimeout(() => {
     isSyncingToParent.value = false;
-    console.log('🔄 重置isSyncingToParent标志');
+
   }, 100);
 };
 
@@ -308,7 +294,7 @@ watch([stepName, UrlInput, address, method], () => {
       }
       syncTimeoutId.value = setTimeout(() => {
         if (step.value && step.value.step_id) {
-          console.log('🔄 延迟同步基础输入框数据到父组件');
+
           emit('step-saved', step.value.step_id, step.value);
           resetSyncFlag(); // 确保同步标志被重置
         }
@@ -364,11 +350,7 @@ const methodOptions = [
 
 // 更新请求配置
 const updateRequestConfig = (config: CaseStep) => {
-  // console.log('stepDetail收到子组件paramCard更新的配置:', {
-  //   stepId: config.step_id,
-  //   hasAssertions: config.assertions?.length > 0,
-  //   assertionsCount: config.assertions?.length || 0
-  // });
+  // 
 
   // 🔥 关键修复：增加防护，只有当子组件传递了有效的step_id时才进行合并
   // 这可以防止子组件在自身初始化期间（此时step_id可能为0）发出的事件污染父组件状态
@@ -407,11 +389,7 @@ const updateRequestConfig = (config: CaseStep) => {
         assertions: newAssertions.length > 0 ? newAssertions : originalAssertions
       };
       
-      console.log('合并assertions:', {
-        original: originalAssertions.length,
-        new: newAssertions.length, 
-        final: step.value.assertions?.length || 0
-      });
+
       
       // 删除可能存在的多余id字段
       delete (step.value as any).id;
@@ -444,17 +422,10 @@ const updateRequestConfig = (config: CaseStep) => {
       if (!step.value.step_name || step.value.step_name === '') {
         // 如果step_name为空，使用props中的stepName或当前的stepName.value
         step.value.step_name = props.stepName || stepName.value || `步骤${step.value.step_order || ''}`;
-        console.log(`⚠️ 同步前发现step_name为空，已修正为: "${step.value.step_name}"`);
+
       }
       
-      console.log('🔄 参数更新后同步到父组件:', {
-        stepId: step.value.step_id,
-        stepName: step.value.step_name,
-        hasBodySource: !!step.value.params?.body_source,
-        hasQuerySource: step.value.params?.query_source?.length > 0,
-        hasHeaderSource: step.value.params?.header_source?.length > 0,
-        assertionsCount: step.value.assertions?.length || 0
-      });
+
       
       // 修复：将驼峰式命名 'stepSaved' 改为 kebab-case 'step-saved'，与父组件中的监听名称一致
       emit('step-saved', step.value.step_id, step.value);
@@ -464,7 +435,7 @@ const updateRequestConfig = (config: CaseStep) => {
     resetSyncFlag();
   }
   
-  console.log('更新后的完整step对象assertions长度:', step.value?.assertions?.length || 0);
+
 }
 
 // 准备步骤数据并同步到父组件
@@ -502,7 +473,7 @@ const handleSave = () => {
     // 确保step_name字段不为空
     if (!step.value.step_name || step.value.step_name === '') {
       step.value.step_name = stepName.value || `步骤${step.value.step_order || ''}`;
-      console.log(`⚠️ 保存前发现step_name为空，已修正为: "${step.value.step_name}"`);
+
     }
     
     // 通知父组件步骤数据已准备好 - 使用kebab-case格式的事件名
@@ -528,7 +499,7 @@ const handleRun = async () => {
     
     // 检查步骤是否存在
     if (!step.value || !step.value.step_id) {
-      console.log('当前step_id:', step.value?.step_id);
+
       ElMessage.warning('没有有效的步骤ID，请先保存用例组');
       return;
     }
@@ -542,13 +513,13 @@ const handleRun = async () => {
 
     // 发送运行请求
     const res = await runCaseStep(step.value.step_id);
-    console.log('运行步骤响应:', res);
+
     if (res?.code === 200) {
       ElMessage.success('运行成功');
       
       // 直接将API响应结果赋值给apiResponse
       apiResponse.value = res;
-      console.log('更新后的apiResponse:', apiResponse.value);
+
     } else {
       ElMessage.error(`运行失败: ${res?.message || '未知错误'}`);
     }
