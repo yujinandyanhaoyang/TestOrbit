@@ -22,8 +22,6 @@ export default defineConfig({
 
         //本地测试地址
         target: 'http://localhost:8000',
-        //参考服务器地址
-        // target: 'http://121.43.43.59:8006',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },

@@ -123,6 +123,7 @@ NO_AUTHORIZE_API = ('/user/login',)
 
 FILE_DIR_HOST = 'http://127.0.0.1:8003/'  # 用于获取上传的文件主机地址，部署时需要修改
 # 数据库配置
+# 自行配置
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
