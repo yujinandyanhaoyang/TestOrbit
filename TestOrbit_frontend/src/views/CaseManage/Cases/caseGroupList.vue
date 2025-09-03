@@ -10,33 +10,144 @@
       @search="searchCasesByName" 
       @add="handleAddCase"
       @batch-action="handleBatchAction"
+      @batch-run="handleBatchRun"
       :has-selection="multipleSelection.length > 0"
+      :selected-count="multipleSelection.length"
     />
     <!-- 场景用例表格 -->
     <el-table
+      v-if="tableData !== undefined"
       ref="multipleTableRef"
       :data="tableData"
       row-key="id"
-      style="width: 100%"
+      style="width: 100%;"
       table-layout="fixed"
       @selection-change="handleSelectionChange"
+      border="false"
+      highlight-current-row
+      :header-row-style="{height: '48px'}"
+      :row-style="{height: '48px'}"
     >
-      <el-table-column type="selection" :selectable="selectable" width="40" />
-      <el-table-column type="index" label="序号" width="80" align="center" />
-      <el-table-column property="name" sortable label="用例名称" />
-      <el-table-column property="status" sortable label="状态" />
-      <el-table-column property="creater_name" sortable label="创建人" />
-      <el-table-column property="updater_name" sortable label="修改人" />
-      <el-table-column property="latest_run_time" sortable label="执行完成时间" />
-      <el-table-column property="created" sortable label="创建时间" />
-      <el-table-column property="updated" sortable label="修改时间" />
-      <el-table-column fixed="right" label="操作" min-width="200">
+      <el-table-column type="selection" :selectable="selectable" width="36" />
+      <el-table-column type="index" label="序号" width="50" align="center" />
+      <el-table-column property="name" sortable label="用例名称" min-width="120" show-overflow-tooltip>
         <template #default="scope">
-          <el-button type="primary"  size="small" @click="handleRun(scope.row.id)">执行</el-button>
-          <el-button type="info"  size="small" @click="openCaseDetail(scope.row.id)">编辑</el-button>
-          <el-button   size="small" @click="handleCopy(scope.row.id)">复制</el-button>
-          <el-button type="success"  size="small" @click="openTestReport(scope.row.id)">报告</el-button>
-          <el-button type="danger"  size="small" @click="handleDelete(scope.row.id)">删除</el-button>
+          <div class="case-name">
+            <span class="case-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </span>
+            <span>{{ scope.row.name }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="status" sortable label="状态" min-width="90">
+        <template #default="scope">
+          <!-- 根据状态动态显示不同样式 -->
+          <span class="status" :class="getStatusClass(scope.row.status)">
+            {{ getStatusText(scope.row.status) }}
+          </span>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="creater_name" sortable label="创建人" width="100">
+        <template #default="scope">
+          <div class="user-info">
+            <span class="user-avatar" :title="scope.row.creater_name">{{ getInitials(scope.row.creater_name) }}</span>
+            <span class="user-name">{{ scope.row.creater_name }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="updater_name" sortable label="修改人" width="100">
+        <template #default="scope">
+          <div class="user-info">
+            <span class="user-avatar" :title="scope.row.updater_name">{{ getInitials(scope.row.updater_name) }}</span>
+            <span class="user-name">{{ scope.row.updater_name }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="latest_run_time" sortable label="执行时间" width="125">
+        <template #default="scope">
+          <div class="time-info" :title="scope.row.latest_run_time">
+            <span class="time-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </span>
+            <span>{{ formatTime(scope.row.latest_run_time) }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="created" sortable label="创建时间" width="125">
+        <template #default="scope">
+          <span :title="scope.row.created">{{ formatDate(scope.row.created) }}</span>
+        </template>
+      </el-table-column>
+      
+      <el-table-column property="updated" sortable label="修改时间" width="125">
+        <template #default="scope">
+          <span :title="scope.row.updated">{{ formatDate(scope.row.updated) }}</span>
+        </template>
+      </el-table-column>
+      
+      <el-table-column fixed="right" label="操作" min-width="180">
+        <template #default="scope">
+          <div class="action-buttons">
+            <el-tooltip content="执行" placement="top" :show-after="300">
+              <el-button circle type="primary" size="small" @click="handleRun(scope.row.id)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </el-button>
+            </el-tooltip>
+            
+            <el-tooltip content="编辑" placement="top" :show-after="300">
+              <el-button circle type="info" size="small" @click="openCaseDetail(scope.row.id)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </el-button>
+            </el-tooltip>
+            
+            <el-tooltip content="复制" placement="top" :show-after="300">
+              <el-button circle size="small" @click="handleCopy(scope.row.id)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </el-button>
+            </el-tooltip>
+            
+            <el-tooltip content="报告" placement="top" :show-after="300">
+              <el-button circle type="success" size="small" @click="openTestReport(scope.row.id)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+              </el-button>
+            </el-tooltip>
+            
+            <el-tooltip content="删除" placement="top" :show-after="300">
+              <el-button circle type="danger" size="small" @click="handleDelete(scope.row.id)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </el-button>
+            </el-tooltip>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -47,47 +158,11 @@
       @size-change="handleSizeChange"
       @current-change="handleCurrentChange"
       :current-page="currentPage"
-      :page-sizes="[2, 4, 5, 15]"
+      :page-sizes="[10, 20, 30, 50]"
       :page-size="pageSize"
       layout="total, sizes, prev, pager, next, jumper"
       :total="total">
     </el-pagination>
-
-    <!-- 批量运行模式选择对话框 -->
-    <el-dialog
-      v-model="showRunModeDialog"
-      title="选择运行模式"
-      width="400px"
-      :close-on-click-modal="false"
-    >
-      <div class="run-mode-selector">
-        <p>您已选择 <strong>{{ multipleSelection.length }}</strong> 个用例，请选择运行模式：</p>
-        
-        <el-radio-group v-model="selectedRunMode" class="run-mode-options">
-          <el-radio :label="0" class="run-mode-option">
-            <div class="mode-info">
-              <div class="mode-title">🚀 并行运行</div>
-              <div class="mode-desc">多个用例同时执行，速度更快</div>
-            </div>
-          </el-radio>
-          <el-radio :label="1" class="run-mode-option">
-            <div class="mode-info">
-              <div class="mode-title">📝 串行运行</div>
-              <div class="mode-desc">用例按顺序逐个执行，更稳定</div>
-            </div>
-          </el-radio>
-        </el-radio-group>
-      </div>
-      
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showRunModeDialog = false">取消</el-button>
-          <el-button type="primary" @click="confirmBatchRun">
-            开始执行
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -114,6 +189,92 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
+// 获取状态对应的样式类
+const getStatusClass = (status: any): string => {
+  if (status === null || status === undefined) return 'pending';
+  
+  const statusNum = Number(status);
+  if (isNaN(statusNum)) return 'pending';
+  
+  switch (statusNum) {
+    case 0: return 'pending';     // WAITING - 等待执行
+    case 1: return 'failed';      // FAILED - 执行失败
+    case 2: return 'running';     // RUNNING - 正在执行
+    case 3: return 'passed';      // FINISH - 执行完成
+    case 4: return 'passed';      // SUCCESS - 执行成功
+    case 5: return 'skipped';     // SKIP - 跳过执行
+    case 6: return 'interrupted'; // INTERRUPT - 手动中断
+    case 7: return 'disabled';    // DISABLED - 已禁用
+    case 8: return 'failed';      // FAILED_STOP - 失败并停止
+    default: return 'pending';
+  }
+}
+
+// 获取状态文本
+const getStatusText = (status: any): string => {
+  if (status === null || status === undefined) return '等待执行';
+  
+  const statusNum = Number(status);
+  if (isNaN(statusNum)) return '未知状态';
+  
+  switch (statusNum) {
+    case 0: return '等待执行';   // WAITING
+    case 1: return '执行失败';   // FAILED
+    case 2: return '执行中';     // RUNNING
+    case 3: return '执行完成';   // FINISH
+    case 4: return '执行成功';   // SUCCESS
+    case 5: return '跳过执行';   // SKIP
+    case 6: return '手动中断';   // INTERRUPT
+    case 7: return '已禁用';     // DISABLED
+    case 8: return '失败停止';   // FAILED_STOP
+    default: return '未知状态';
+  }
+}
+
+// 获取用户名首字母
+const getInitials = (name: any): string => {
+  if (!name) return '?';
+  // 确保 name 是字符串类型
+  const nameStr = String(name);
+  return nameStr.charAt(0).toUpperCase();
+}
+
+// 格式化执行时间 - 更紧凑显示
+const formatTime = (time: any): string => {
+  if (!time) return '未执行';
+  // 确保 time 是字符串类型
+  const timeStr = String(time);
+  // 显示年-月-日 时:分
+  try {
+    const date = new Date(timeStr);
+    if (isNaN(date.getTime())) return timeStr.substring(0, 10);
+    
+    // 格式化为 年-月-日 时:分
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  } catch (e) {
+    // 如果解析失败，返回原始字符串的前10个字符
+    return timeStr.substring(0, 10);
+  }
+}
+
+// 格式化日期（创建/更新时间）
+const formatDate = (date: any): string => {
+  if (!date) return '';
+  // 确保 date 是字符串类型
+  const dateStr = String(date);
+  // 显示年-月-日
+  try {
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return dateStr.substring(0, 10);
+    
+    // 始终显示年-月-日，统一格式并补零
+    return `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
+  } catch (e) {
+    // 如果解析失败，返回原始字符串的前10个字符
+    return dateStr.substring(0, 10);
+  }
+}
+
 // 获取数据参数
 const is_delete = ref(false)
 // 页面加载状态
@@ -129,10 +290,6 @@ const caseModuleStore = useCaseModuleStore()
 const tableData = ref<CaseGroupInfo[]>()
 const multipleTableRef = ref<TableInstance>()
 const multipleSelection = ref<CaseGroupInfo[]>([])
-
-// 批量运行模式选择对话框
-const showRunModeDialog = ref(false)
-const selectedRunMode = ref(0) // 默认选择并行模式 (0=并行, 1=串行)
 
 // 处理分页显示
 const handleSizeChange = (size: number) =>{
@@ -178,7 +335,21 @@ const getCaseListData = async() => {
     )
     if (response.code === 200) {
       total.value = response.results?.total || 0
-      tableData.value = response.results?.data || []
+      
+      // 确保表格数据始终为数组，并处理可能的 null 值
+      if (Array.isArray(response.results?.data)) {
+        tableData.value = response.results.data;
+      } else {
+        tableData.value = [];
+      }
+      
+      // 确保表格数据中的每一项都是有效对象，避免 null 或 undefined 导致的错误
+      if (tableData.value && tableData.value.length > 0) {
+        tableData.value = tableData.value.map(item => {
+          // 如果某一项是 null 或 undefined，返回空对象
+          return item || {};
+        });
+      }
       
       if (tableData.value.length === 0) {
         ElMessage.info('当前模块下暂无用例数据')
@@ -259,10 +430,6 @@ const handleBatchAction = async (actionType: string) => {
   
   // 根据操作类型执行不同的批量操作
   switch (actionType) {
-    case 'run':
-      // 显示运行模式选择对话框
-      showRunModeDialog.value = true;
-      break;
     case 'delete':
       // TODO: 实现批量删除
       ElMessage.info('批量删除功能尚未实现');
@@ -274,15 +441,6 @@ const handleBatchAction = async (actionType: string) => {
     default:
       ElMessage.info(`已选中 ${multipleSelection.value.length} 项，请选择具体的批量操作`);
   }
-}
-
-// 确认批量运行 - 用户选择运行模式后的处理
-const confirmBatchRun = async () => {
-  // 关闭对话框
-  showRunModeDialog.value = false;
-  
-  // 执行批量运行
-  await handleBatchRun(selectedRunMode.value);
 }
 
 // 批量运行用例 - 修改为接受运行模式参数
@@ -430,16 +588,201 @@ const openTestReport = (reportId: number) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 0 0.5rem;
   
-  /* 确保表格区域占据剩余空间 */
+  /* 确保表格区域占据剩余空间 - 使用 Google/Apple 风格 */
   .el-table {
     flex: 1;
-    overflow: auto;
+    overflow: hidden !important; /* 完全隐藏所有滚动条 */
+    border-radius: 12px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+    min-height: 180px; /* 确保表格至少有一定高度，即使只有一行数据 */
+    
+    /* 自定义表头样式 */
+    :deep(.el-table__header-wrapper) {
+      .el-table__header {
+        th {
+          background-color: rgba(250, 250, 252, 0.8);
+          font-weight: 500;
+          color: #333;
+          font-size: 14px;
+          padding: 16px 0;
+          border-bottom: 1px solid #f0f0f0;
+          letter-spacing: 0.2px;
+          
+          .cell {
+            display: flex;
+            align-items: center;
+            transition: color 0.2s ease;
+          }
+          
+          &.is-sortable {
+            .cell {
+              cursor: pointer;
+              
+              &:hover {
+                color: #409EFF;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    /* 表格行样式 */
+    :deep(.el-table__body-wrapper) {
+      /* 确保空表格也显示一定高度 */
+      min-height: 100px;
+      overflow-y: hidden !important; /* 强制隐藏垂直滚动条 */
+      
+      .el-table__row {
+        transition: all 0.3s ease;
+        height: 48px !important; /* 强制设置行高 */
+        
+        td {
+          padding: 14px 0;
+          border: none;
+          height: 48px !important; /* 强制设置单元格高度 */
+          
+          .cell {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #262626;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+        
+        /* 隔行变色 - 轻微的颜色差异 */
+        &:nth-child(even) {
+          background-color: rgba(250, 250, 252, 0.5);
+        }
+        
+        /* 悬停效果 */
+        &:hover td {
+          background-color: rgba(64, 158, 255, 0.05) !important;
+        }
+      }
+    }
+    
+    /* 状态列样式 */
+    :deep(.el-table__row .cell:has(span.status)) {
+      .status {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        
+        &.passed {
+          background-color: rgba(103, 194, 58, 0.1);
+          color: #67c23a;
+        }
+        
+        &.failed {
+          background-color: rgba(245, 108, 108, 0.1);
+          color: #f56c6c;
+        }
+        
+        &.pending {
+          background-color: rgba(230, 162, 60, 0.1);
+          color: #e6a23c;
+        }
+        
+        &.running {
+          background-color: rgba(64, 158, 255, 0.1);
+          color: #409EFF;
+        }
+        
+        &.skipped {
+          background-color: rgba(144, 147, 153, 0.1);
+          color: #909399;
+        }
+        
+        &.interrupted {
+          background-color: rgba(255, 140, 0, 0.1);
+          color: #ff8c00;
+        }
+        
+        &.disabled {
+          background-color: rgba(192, 196, 204, 0.1);
+          color: #c0c4cc;
+        }
+      }
+    }
+    
+    /* 操作列按钮样式 */
+    :deep(.el-table__fixed-right) {
+      .cell {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        
+        .el-button {
+          padding: 6px 12px;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          font-weight: 400;
+          
+          &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+          }
+        }
+      }
+    }
   }
   
-  /* 分页控件样式 */
+  /* 分页控件样式 - Apple 风格 */
   .el-pagination {
-    margin-top: 10px;
+    margin-top: 20px;
+    padding: 5px 0;
+    justify-content: center;
+    background-color: transparent;
+    
+    :deep(.el-pagination__total, .el-pagination__jump) {
+      color: #606266;
+      font-size: 13px;
+    }
+    
+    :deep(.el-pager li) {
+      margin: 0 3px;
+      min-width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      font-weight: 400;
+      transition: all 0.2s;
+      
+      &:hover:not(.is-active) {
+        color: #409EFF;
+      }
+      
+      &.is-active {
+        background-color: #409EFF;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.35);
+      }
+    }
+    
+    :deep(.btn-prev, .btn-next) {
+      border-radius: 6px;
+      padding: 0 5px;
+      height: 30px;
+      
+      &:hover {
+        color: #409EFF;
+      }
+      
+      &:disabled {
+        color: #c0c4cc;
+      }
+    }
   }
 }
 
@@ -469,47 +812,198 @@ const openTestReport = (reportId: number) => {
   }
 }
 
-/* 批量运行模式选择对话框样式 */
-.run-mode-selector {
-  .run-mode-options {
-    margin-top: 20px;
+/* 用例名称样式 */
+.case-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  .case-icon {
+    color: #409EFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* 用户信息样式 - 更紧凑 */
+.user-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #f0f7ff;
+    color: #409EFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    font-size: 12px;
+    cursor: help; /* 显示为提示鼠标，暗示有tooltip */
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
     
-    .run-mode-option {
-      display: block;
-      margin-bottom: 15px;
-      padding: 15px;
-      border: 1px solid #e4e7ed;
-      border-radius: 8px;
-      transition: all 0.3s ease;
-      
-      &:hover {
-        border-color: #409eff;
-        background-color: #f0f9ff;
-      }
-      
-      .mode-info {
-        margin-left: 10px;
-        
-        .mode-title {
-          font-weight: 600;
-          font-size: 16px;
-          color: #303133;
-          margin-bottom: 5px;
-        }
-        
-        .mode-desc {
-          font-size: 14px;
-          color: #606266;
-          line-height: 1.4;
-        }
-      }
-    }
-    
-    // 选中状态样式
-    :deep(.el-radio__input.is-checked + .el-radio__label) .run-mode-option {
-      border-color: #409eff;
-      background-color: #ecf5ff;
+    &:hover {
+      transform: scale(1.1);
     }
   }
+  
+  .user-name {
+    font-size: 14px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* 时间信息样式 - 更紧凑 */
+.time-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  
+  .time-icon {
+    color: #909399;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* 状态标签样式 - 更紧凑 */
+.status {
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  
+  &.passed {
+    background-color: rgba(103, 194, 58, 0.1);
+    color: #67c23a;
+    border: 1px solid rgba(103, 194, 58, 0.2);
+  }
+  
+  &.failed {
+    background-color: rgba(245, 108, 108, 0.1);
+    color: #f56c6c;
+    border: 1px solid rgba(245, 108, 108, 0.2);
+  }
+  
+  &.pending {
+    background-color: rgba(230, 162, 60, 0.1);
+    color: #e6a23c;
+    border: 1px solid rgba(230, 162, 60, 0.2);
+  }
+  
+  &.running {
+    background-color: rgba(64, 158, 255, 0.1);
+    color: #409EFF;
+    border: 1px solid rgba(64, 158, 255, 0.2);
+  }
+  
+  &.skipped {
+    background-color: rgba(144, 147, 153, 0.1);
+    color: #909399;
+    border: 1px solid rgba(144, 147, 153, 0.2);
+  }
+  
+  &.interrupted {
+    background-color: rgba(255, 140, 0, 0.1);
+    color: #ff8c00;
+    border: 1px solid rgba(255, 140, 0, 0.2);
+  }
+  
+  &.disabled {
+    background-color: rgba(192, 196, 204, 0.1);
+    color: #c0c4cc;
+    border: 1px solid rgba(192, 196, 204, 0.2);
+  }
+}
+
+/* 操作按钮样式 - 更好的布局 */
+.action-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: flex-start;
+  align-items: center;
+  
+  .el-button {
+    padding: 6px;
+    height: 30px;
+    width: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    
+    svg {
+      transition: transform 0.15s ease;
+    }
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      
+      svg {
+        transform: scale(1.2);
+      }
+    }
+    
+    &:active {
+      transform: translateY(0px);
+    }
+  }
+}
+
+/* 确保固定列（操作列）样式正确 */
+:deep(.el-table__fixed-right) {
+  .el-table__fixed-header-wrapper th:last-child,
+  .el-table__fixed-body-wrapper td:last-child {
+    padding-right: 12px !important;
+  }
+  
+  .cell {
+    padding: 0 8px;
+  }
+}
+
+/* 全局样式 - 彻底隐藏 Element Plus 表格的所有垂直滚动条 */
+:deep(.el-table) {
+  overflow: hidden !important;
+}
+
+:deep(.el-table__header-wrapper),
+:deep(.el-table__body-wrapper),
+:deep(.el-table__fixed-header-wrapper),
+:deep(.el-table__fixed-body-wrapper),
+:deep(.el-table__fixed-right-patch),
+:deep(.el-scrollbar),
+:deep(.el-scrollbar__wrap),
+:deep(.el-scrollbar__view) {
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+}
+
+/* 隐藏滚动条轨道 */
+:deep(.el-scrollbar__bar) {
+  display: none !important;
+}
+
+/* 确保表格内容不会超出容器 */
+:deep(.el-table__inner-wrapper) {
+  overflow: hidden !important;
 }
 </style>

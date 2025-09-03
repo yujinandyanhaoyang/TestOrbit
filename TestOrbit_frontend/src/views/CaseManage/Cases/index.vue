@@ -1,64 +1,70 @@
 <template>
-  <div class="page-header">
-    <h2>测试用例管理</h2>
-    <div class="action-buttons">
-      <el-button 
-        type="primary" 
-        size="small" 
-        @click="createNewCaseGroup()"
-      >
-        <el-icon class="el-icon--left"><Plus /></el-icon>
-        新建用例组
-      </el-button>
+  <div class="cases-index-container">
+    <div class="page-header">
+      <h2 class="header-title">测试用例管理</h2>
     </div>
+    <el-tabs
+      v-model="editableTabsValue"
+      type="card"
+      class="custom-tabs"
+      @tab-remove="removeTab"
+      @tab-click="handleTabClick"
+    >
+      <!-- 第一个固定标签 - 用例列表 -->
+      <el-tab-pane
+        label="用例列表"
+        name="cases"
+        :closable="false"
+      >
+        <CasesList 
+          @openCaseDetail="handleOpenCaseDetail"
+          @openTestReport="openTestReport" 
+        />
+      </el-tab-pane>
+      
+      <!-- 其他可关闭的动态标签 -->
+      <el-tab-pane
+        v-for="item in editableTabs"
+        :key="item.name"
+        :label="item.title"
+        :name="item.name"
+        closable
+      >
+        <component 
+          v-if="item.componentName" 
+          :is="resolveComponent(item.componentName)"
+          v-bind="item.props"
+          class="tab-component"
+        />
+        <CaseGroupDetail 
+          v-else-if="item.caseId || item.isNew" 
+          :caseId="item.caseId" 
+          :is-new="item.isNew"
+          @case-saved="handleCaseSaved"
+          class="case-group-detail"
+        />
+        <div v-else class="tab-content">
+          <h3>{{ item.title }}</h3>
+          <div>{{ item.content }}</div>
+        </div>
+      </el-tab-pane>
+      
+      <!-- 添加用例标签 - 始终位于最右端 -->
+      <el-tab-pane
+        name="add-case"
+        :closable="false"
+      >
+        <template #label>
+          <div class="add-tab-label">
+            <el-icon><Plus /></el-icon>
+            <span>添加用例</span>
+          </div>
+        </template>
+        <!-- 这个标签页不会显示内容，因为点击时会直接创建新标签 -->
+        <div></div>
+      </el-tab-pane>
+    </el-tabs>
   </div>
-  <el-tabs
-    v-model="editableTabsValue"
-    type="card"
-    class="demo-tabs"
-    @tab-remove="removeTab"
-  >
-    <!-- 第一个固定标签 - 用例列表 -->
-    <el-tab-pane
-      label="用例列表"
-      name="cases"
-      :closable="false"
-    >
-      <!-- 传递事件处理函数，以便从列表打开用例详情和测试报告 -->
-      <CasesList 
-        @openCaseDetail="handleOpenCaseDetail"
-        @openTestReport="openTestReport" 
-      />
-    </el-tab-pane>
-    
-    <!-- 其他可关闭的动态标签 -->
-    <el-tab-pane
-      v-for="item in editableTabs"
-      :key="item.name"
-      :label="item.title"
-      :name="item.name"
-      closable
-    >
-      <!-- 使用动态组件根据标签类型显示不同的组件 -->
-      <component 
-        v-if="item.componentName" 
-        :is="resolveComponent(item.componentName)"
-        v-bind="item.props"
-      />
-      <!-- 使用CaseGroupDetail组件显示用例详情 -->
-      <CaseGroupDetail 
-        v-else-if="item.caseId || item.isNew" 
-        :caseId="item.caseId" 
-        :is-new="item.isNew"
-        @case-saved="handleCaseSaved"
-      />
-      <!-- 默认情况下显示内容文本 -->
-      <div v-else class="tab-content">
-        <h3>{{ item.title }}</h3>
-        <div>{{ item.content }}</div>
-      </div>
-    </el-tab-pane>
-  </el-tabs>
 </template>
 
 <script lang="ts" setup>
@@ -205,6 +211,31 @@ const resolveComponent = (componentName: string) => {
 }
 
 /**
+ * 处理标签点击事件
+ * @param tab 被点击的标签
+ */
+const handleTabClick = (tab: any) => {
+  // 如果点击的是"添加用例"标签
+  if (tab.props.name === 'add-case') {
+    // 创建新用例组
+    createNewCaseGroup()
+    
+    // 阻止切换到"添加用例"标签页，保持在之前的活动标签
+    // 使用 nextTick 确保在下一个事件循环中恢复正确的标签
+    setTimeout(() => {
+      // 如果有动态标签存在，切换到最后一个动态标签（刚创建的）
+      if (editableTabs.value.length > 0) {
+        const lastTab = editableTabs.value[editableTabs.value.length - 1]
+        editableTabsValue.value = lastTab.name
+      } else {
+        // 如果没有动态标签，切换回用例列表
+        editableTabsValue.value = 'cases'
+      }
+    }, 0)
+  }
+}
+
+/**
  * 处理从用例列表中打开用例详情的事件
  * @param caseId 要打开的用例ID
  */
@@ -271,62 +302,202 @@ const handleCaseSaved = (caseId: number) => {
 
 
 
-<style scoped>
+<style scoped lang="scss">
+.cases-index-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f7f9fc;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  padding: 0 10px;
+
+  .header-title {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 22px;
+    font-weight: 600;
+  }
 }
 
-.page-header h2 {
-  margin: 0;
-  color: #303133;
-  font-weight: 500;
-}
-
-.action-buttons {
+.custom-tabs {
+  flex: 1;
   display: flex;
-  gap: 10px;
-}
+  flex-direction: column;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
 
-.demo-tabs {
-  border-radius: 4px;
-  background-color: #fff;
-}
+  :deep(.el-tabs__header) {
+    margin: 0 0 15px;
+    border-bottom: 1px solid #e4e7ed;
+    position: relative;
 
-.demo-tabs > .el-tabs__content {
-  padding: 20px;
-  color: #303133;
-  font-size: 14px;
+    .el-tabs__nav-wrap {
+      position: relative;
+      overflow: hidden; /* 防止标签溢出 */
+    }
+
+    .el-tabs__nav {
+      border: none;
+      flex-wrap: nowrap; /* 确保标签不换行 */
+      
+      .el-tabs__item {
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #606266;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        padding: 0 20px;
+        height: 48px;
+        line-height: 48px;
+        white-space: nowrap; /* 防止标签文字换行 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &:hover {
+          color: var(--el-color-primary);
+        }
+
+        &.is-active {
+          color: var(--el-color-primary);
+          border-bottom-color: var(--el-color-primary);
+          background-color: transparent;
+        }
+
+        // 为"添加用例"标签添加特殊样式
+        &[aria-controls="pane-add-case"] {
+          margin-left: 10px; // 与其他标签保持一定距离
+          border: 1px dashed #d9d9d9;
+          border-radius: 6px;
+          background-color: #fafafa;
+          
+          &:hover {
+            border-color: var(--el-color-primary);
+            background-color: rgba(var(--el-color-primary-rgb), 0.05);
+            border-style: solid;
+          }
+
+          &.is-active {
+            // 添加用例标签不应该有激活状态，因为它只是一个操作按钮
+            color: #606266;
+            border-bottom: 2px solid transparent;
+            background-color: #fafafa;
+          }
+        }
+      }
+    }
+  }
+
+  .add-tab-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #909399;
+    transition: all 0.3s ease;
+
+    .el-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+
+  :deep(.el-tabs__content) {
+    flex: 1;
+    padding: 0;
+    overflow-y: auto;
+    
+    // 为标签页内容设置容器约束
+    .el-tab-pane {
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+  }
 }
 
 .tab-content {
-  padding: 15px;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.tab-content h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #409EFF;
-  font-weight: 500;
-  border-bottom: 1px solid #EBEEF5;
-  padding-bottom: 10px;
+/* 控制子组件的宽度和布局 */
+.case-group-detail, .tab-component {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.case-info {
-  background-color: #F5F7FA;
-  padding: 15px;
-  border-radius: 4px;
-  margin-top: 10px;
+/* 确保CaseGroupDetail组件内的表格等元素不会超出容器 */
+.case-group-detail {
+  :deep(.el-table) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  :deep(.el-form) {
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* 控制内部容器的最大宽度 */
+  :deep(.case-detail-container) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
 }
 
-.case-id {
-  font-weight: bold;
-  margin-bottom: 10px;
+/* 响应式设计 - 处理小屏幕设备 */
+@media (max-width: 768px) {
+  .cases-index-container {
+    padding: 10px;
+  }
+  
+  .page-header {
+    .header-title {
+      font-size: 18px;
+    }
+  }
+  
+  .custom-tabs {
+    :deep(.el-tabs__header) {
+      .el-tabs__item {
+        padding: 0 12px;
+        font-size: 14px;
+      }
+    }
+  }
+  
+  .case-group-detail {
+    :deep(.el-table) {
+      font-size: 12px;
+    }
+  }
 }
 
-.case-description {
-  color: #606266;
-  line-height: 1.6;
+/* 处理超宽屏幕 */
+@media (min-width: 1920px) {
+  .case-group-detail {
+    :deep(.case-detail-container) {
+      max-width: 1800px;
+      margin: 0 auto;
+    }
+  }
 }
 </style>

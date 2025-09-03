@@ -1,23 +1,33 @@
 <template>
   <div class="case-tree-container">
-    <div class="header">
-      <el-select
-        v-model="caseModuleStore.selectedProjectId"
-        placeholder="请选择所属项目组"
-        style="width: 100%"
-        clearable
-        @change="handleProjectChange">
-        <el-option 
-          v-for="project in projectOptions" 
-          :key="project.id" 
-          :label="project.name" 
-          :value="project.id">
-        </el-option>
-      </el-select>
-      <el-button type="primary" size="small" @click="handleAddRoot">添加根目录</el-button>
+    <div class="header-section">
+      <div class="project-selector">
+        <label class="selector-label">项目选择</label>
+        <el-select
+          v-model="caseModuleStore.selectedProjectId"
+          placeholder="请选择所属项目组"
+          class="project-select"
+          clearable
+          @change="handleProjectChange">
+          <el-option 
+            v-for="project in projectOptions" 
+            :key="project.id" 
+            :label="project.name" 
+            :value="project.id">
+          </el-option>
+        </el-select>
+      </div>
+      <el-button 
+        type="primary" 
+        class="add-root-btn"
+        @click="handleAddRoot"
+        :icon="'Plus'"
+      >
+        添加根目录
+      </el-button>
     </div>
     
-    <div class="tree-container" v-loading="loading">
+    <div class="tree-section" v-loading="loading">
       <el-tree
         ref="treeRef"
         :data="treeData"
@@ -25,42 +35,58 @@
         :props="defaultProps"
         default-expand-all
         :expand-on-click-node="false"
+        class="custom-tree"
       >
         <template #default="{ node, data }">
-          <span class="custom-tree-node">
-            <span @click="handleNodeClick(data.id)">{{ node.label }}</span>
-            <span class="node-actions">
-              <el-button
-                type="primary"
-                link
-                size="small"
-                @click="handleAddChild(data)"
+          <div class="tree-node-content">
+            <div class="node-info" @click="handleNodeClick(data.id)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="folder-icon">
+                <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H9l-2-2H5a2 2 0 0 0-2 2v0"></path>
+              </svg>
+              <span class="node-label">{{ node.label }}</span>
+            </div>
+            <div class="node-actions">
+              <button
+                class="action-btn add-btn"
+                @click.stop="handleAddChild(data)"
+                title="添加子模块"
               >
-                添加
-              </el-button>
-              <el-button
-                type="primary"
-                link
-                size="small"
-                @click="handleEdit(data)"
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5v14"></path>
+                </svg>
+              </button>
+              <button
+                class="action-btn edit-btn"
+                @click.stop="handleEdit(data)"
+                title="编辑模块"
               >
-                编辑
-              </el-button>
-              <el-button
-                type="danger"
-                link
-                size="small"
-                @click="handleDelete(node, data)"
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button
+                class="action-btn delete-btn"
+                @click.stop="handleDelete(node, data)"
+                title="删除模块"
               >
-                删除
-              </el-button>
-            </span>
-          </span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3,6 5,6 21,6"></polyline>
+                  <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
         </template>
       </el-tree>
       
-      <div v-if="!loading && treeData.length === 0" class="empty-tip">
-        暂无测试场景，请添加根目录
+      <div v-if="!loading && treeData.length === 0" class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z"></path>
+        </svg>
+        <p class="empty-title">暂无测试场景</p>
+        <p class="empty-desc">点击上方按钮添加根目录</p>
       </div>
     </div>
 
@@ -357,52 +383,268 @@ const handleNodeClick = (id: string) => {
 </script>
 
 <style scoped lang="scss">
+// 设计系统变量（与 head 组件保持一致，使用 Element Plus 主题变量）
+:root {
+  --primary-color: var(--el-color-primary);
+  --primary-light: var(--el-color-primary-light-9);
+  --success-color: #4caf50;
+  --warning-color: #ff9800;
+  --error-color: #f44336;
+  --text-primary: #303133;    // 与 head 中标题颜色一致
+  --text-secondary: #606266;  // 与 head 中次要文字一致
+  --text-disabled: #909399;
+  --background-primary: #ffffff;
+  --background-secondary: #f5f7fa; // 与 head 背景一致
+  --border-color: #e4e7ed;         // 与 head 边框一致
+  --border-radius: 8px;
+  --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
 .case-tree-container {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--background-primary);
+  border-radius: var(--border-radius);
+  overflow: hidden;
   
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    margin-bottom: 10px;
+  .header-section {
+    padding: 16px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--border-color);
     
-    h2 {
-      margin: 0;
+    .project-selector {
+      margin-bottom: 12px;
+      
+      .selector-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+      
+      .project-select {
+        width: 100%;
+        
+        :deep(.el-input__inner) {
+          border-radius: 6px;
+          border-color: var(--border-color);
+          transition: all 0.2s ease;
+          
+          &:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px var(--primary-light);
+          }
+        }
+      }
+    }
+    
+    .add-root-btn {
+      width: 100%;
+      height: 38px;
+      border-radius: 6px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      
+      .btn-icon {
+        width: 16px;
+        height: 16px;
+      }
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-medium);
+      }
     }
   }
   
-  .tree-container {
+  .tree-section {
     flex: 1;
+    padding: 12px 16px;
     overflow: auto;
-    padding: 10px;
-    border: 1px solid #ebeef5;
-    border-radius: 4px;
     
-    .empty-tip {
-      padding: 20px;
+    .custom-tree {
+      background: transparent;
+      
+      :deep(.el-tree-node) {
+        .el-tree-node__content {
+          height: 40px;
+          padding: 0 8px;
+          border-radius: 6px;
+          margin-bottom: 2px;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            background-color: var(--primary-light);
+          }
+          
+          .el-tree-node__expand-icon {
+            color: var(--text-secondary);
+            font-size: 14px;
+            
+            &.expanded {
+              transform: rotate(90deg);
+            }
+          }
+        }
+        
+        &.is-current > .el-tree-node__content {
+          background-color: var(--primary-light);
+          border: 1px solid var(--el-color-primary-light-7);
+        }
+      }
+    }
+    
+    .tree-node-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      
+      .node-info {
+        display: flex;
+        align-items: center;
+        flex: 1;
+        cursor: pointer;
+        padding: 4px 0;
+        
+        .folder-icon {
+          color: var(--primary-color);
+          margin-right: 8px;
+          flex-shrink: 0;
+        }
+        
+        .node-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-primary);
+          transition: color 0.2s ease;
+        }
+        
+        &:hover .node-label {
+          color: var(--primary-color);
+        }
+      }
+      
+      .node-actions {
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        
+        .action-btn {
+          width: 28px;
+          height: 28px;
+          border: none;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          background: transparent;
+          
+          &:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+          }
+          
+          &.add-btn {
+            color: var(--success-color);
+            
+            &:hover {
+              background: rgba(76, 175, 80, 0.08);
+            }
+          }
+          
+          &.edit-btn {
+            color: var(--warning-color);
+            
+            &:hover {
+              background: rgba(255, 152, 0, 0.08);
+            }
+          }
+          
+          &.delete-btn {
+            color: var(--error-color);
+            
+            &:hover {
+              background: rgba(244, 67, 54, 0.08);
+            }
+          }
+        }
+      }
+      
+      &:hover .node-actions {
+        opacity: 1;
+      }
+    }
+    
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
       text-align: center;
-      color: #909399;
+      
+      .empty-icon {
+        color: var(--text-disabled);
+        margin-bottom: 16px;
+      }
+      
+      .empty-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin: 0 0 8px 0;
+      }
+      
+      .empty-desc {
+        font-size: 14px;
+        color: var(--text-disabled);
+        margin: 0;
+      }
     }
   }
 }
 
-.custom-tree-node {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  padding-right: 8px;
-  
-  .node-actions {
-    display: none;
-  }
-  
-  &:hover .node-actions {
-    display: inline-block;
+// 加载动画优化
+:deep(.el-loading-mask) {
+  border-radius: var(--border-radius);
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .case-tree-container {
+    .header-section {
+      padding: 12px;
+      
+      .add-root-btn {
+        height: 36px;
+        font-size: 14px;
+      }
+    }
+    
+    .tree-section {
+      padding: 8px 12px;
+      
+      .tree-node-content {
+        .node-actions .action-btn {
+          width: 32px;
+          height: 32px;
+        }
+      }
+    }
   }
 }
 </style>

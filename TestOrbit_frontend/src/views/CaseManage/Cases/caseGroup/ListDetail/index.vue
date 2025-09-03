@@ -15,9 +15,19 @@
               <el-collapse-item :name="(element.step_id || (element as any).id || index).toString()">
                 <template #title>
                   <div class="step-header">
-                    <el-icon class="drag-handle"><Rank /></el-icon>
+                    <el-tooltip content="拖拽排序" placement="top" :show-after="500">
+                      <el-icon class="drag-handle"><Rank /></el-icon>
+                    </el-tooltip>
                     <span class="step-number">步骤{{ index + 1 }}</span>
-                    <span class="step-title">{{ element.step_name }}</span>
+                    <span class="step-title">{{ element.step_name || '未命名步骤' }}</span>
+                    <div class="step-badges">
+                      <el-tag size="small" :type="getStepStatusType(element.status)" v-if="element.status" class="status-badge">
+                        {{ getStepStatusText(element.status) }}
+                      </el-tag>
+                      <el-tag size="small" type="info" v-if="element.assertions && element.assertions.length > 0" class="count-badge">
+                        断言: {{ element.assertions.length }}
+                      </el-tag>
+                    </div>
                   </div>
                 </template>
                 <StepDetail 
@@ -29,7 +39,10 @@
                   @step-saved="handleStepSaved"
                 />
                 <div class="step-actions">
-                  <el-button size="small" type="danger" @click.stop="removeStep(element.step_id || (element as any).id)">删除步骤</el-button>
+                  <el-button size="small" type="danger" @click.stop="removeStep(element.step_id || (element as any).id)" class="delete-btn">
+                    <el-icon><Delete /></el-icon>
+                    删除步骤
+                  </el-button>
                 </div>
               </el-collapse-item>
             </el-collapse>
@@ -44,7 +57,7 @@
 import { ref, onMounted, defineExpose, watch, computed } from 'vue'
 import StepDetail from './stepDetail.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Rank, Upload } from '@element-plus/icons-vue'
+import { Rank, Delete } from '@element-plus/icons-vue'
 import type { CollapseModelValue } from 'element-plus'
 // 引入draggable组件
 import draggable from 'vuedraggable'
@@ -242,6 +255,48 @@ const handleStepSaved = (stepId: number, stepData: any) => {
   console.log('🎯 跳过caseGroupData同步，避免循环触发');
 };
 
+// 获取步骤状态类型
+const getStepStatusType = (status: any): '' | 'success' | 'warning' | 'info' | 'danger' => {
+  if (!status) return '';
+  
+  const statusNum = Number(status);
+  if (isNaN(statusNum)) return '';
+  
+  switch (statusNum) {
+    case 0: return 'info';      // 等待执行
+    case 1: return 'danger';    // 执行失败
+    case 2: return 'warning';   // 执行中
+    case 3: return 'success';   // 执行完成
+    case 4: return 'success';   // 执行成功
+    case 5: return 'info';      // 跳过执行
+    case 6: return 'warning';   // 手动中断
+    case 7: return 'info';      // 已禁用
+    case 8: return 'danger';    // 失败停止
+    default: return '';
+  }
+};
+
+// 获取步骤状态文本
+const getStepStatusText = (status: any): string => {
+  if (!status) return '';
+  
+  const statusNum = Number(status);
+  if (isNaN(statusNum)) return '';
+  
+  switch (statusNum) {
+    case 0: return '等待执行';
+    case 1: return '执行失败';
+    case 2: return '执行中';
+    case 3: return '执行完成';
+    case 4: return '执行成功';
+    case 5: return '跳过执行';
+    case 6: return '已中断';
+    case 7: return '已禁用';
+    case 8: return '失败停止';
+    default: return '';
+  }
+};
+
 // 折叠面板变更事件 - 简化版，只负责展示面板
 const handleChange = (val: CollapseModelValue) => {
   // 获取当前打开的步骤ID
@@ -313,33 +368,66 @@ defineExpose({
   width: 100%;
   position: relative;
   min-height: 200px;
+  padding: 8px 0;
+  
+  // 添加自定义滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(144, 147, 153, 0.3);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background-color: rgba(144, 147, 153, 0.1);
+    border-radius: 3px;
+  }
   
   .case-group-info {
-    background-color: #f9fafc;
-    border: 1px solid #ebeef5;
-    border-radius: 4px;
-    padding: 16px;
-    margin-bottom: 20px;
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     
     h2 {
-      margin: 0 0 12px 0;
-      font-size: 20px;
+      margin: 0 0 16px 0;
+      font-size: 22px;
       color: #303133;
+      font-weight: 600;
+      position: relative;
+      padding-bottom: 10px;
+      
+      &:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 40px;
+        height: 3px;
+        background-color: #409eff;
+        border-radius: 3px;
+      }
     }
     
     .info-row {
-      margin: 6px 0;
+      margin: 8px 0;
       display: flex;
       align-items: center;
       
       .label {
         color: #606266;
-        margin-right: 8px;
+        margin-right: 10px;
         font-weight: 500;
+        min-width: 80px;
       }
       
       .value {
         color: #303133;
+        font-weight: 400;
       }
     }
   }
@@ -348,52 +436,141 @@ defineExpose({
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    padding: 16px 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
     
     h2 {
       margin: 0;
       font-size: 18px;
       color: #303133;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      
+      &:before {
+        content: '';
+        display: inline-block;
+        width: 4px;
+        height: 18px;
+        background-color: #409eff;
+        margin-right: 10px;
+        border-radius: 2px;
+      }
     }
     
     .actions {
       display: flex;
-      gap: 8px;
+      gap: 10px;
+      
+      .el-button {
+        border-radius: 8px;
+        padding: 8px 16px;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+      }
     }
   }
   
   .steps-container {
-    border: 1px solid #ebeef5;
-    border-radius: 4px;
+    background: #f9fafc;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
     
     .step-item {
-      border-bottom: 1px solid #ebeef5;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      background-color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      overflow: hidden;
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+      }
       
       &:last-child {
-        border-bottom: none;
+        margin-bottom: 0;
       }
       
       .step-header {
         display: flex;
         align-items: center;
         gap: 12px;
+        padding: 4px 8px;
+        width: 100%;
         
         .drag-handle {
           cursor: move;
           color: #909399;
+          background-color: #f5f7fa;
+          padding: 8px;
+          border-radius: 6px;
+          transition: all 0.2s ease;
           
           &:hover {
             color: #409eff;
+            background-color: #ecf5ff;
+            transform: scale(1.1);
           }
         }
         
         .step-number {
-          font-weight: bold;
-          color: #606266;
+          font-weight: 600;
+          color: #409eff;
+          background: rgba(64, 158, 255, 0.1);
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 14px;
+          min-width: 70px;
+          text-align: center;
+          box-shadow: 0 2px 4px rgba(64, 158, 255, 0.1);
         }
         
         .step-title {
           color: #303133;
+          font-weight: 500;
+          font-size: 15px;
+          flex-grow: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 0 8px;
+        }
+        
+        .step-badges {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-right: 8px;
+          
+          .status-badge, .count-badge {
+            padding: 0 8px;
+            height: 24px;
+            line-height: 24px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            
+            &:hover {
+              transform: scale(1.05);
+            }
+          }
+          
+          .count-badge {
+            background-color: #f0f9ff;
+            color: #409eff;
+            border-color: #d9ecff;
+          }
         }
       }
     }
@@ -402,25 +579,90 @@ defineExpose({
 
 /* 拖拽时的样式 */
 .ghost {
-  opacity: 0.5;
-  background: #c8ebfb;
+  opacity: 0.7;
+  background: #e8f4fe;
+  border: 2px dashed #409eff;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.2);
+  transform: scale(1.02);
 }
 
-/* 确保el-collapse不影响拖拽功能 */
+/* 自定义el-collapse样式 */
 :deep(.el-collapse) {
   border: none;
 }
 
 :deep(.el-collapse-item) {
   border-bottom: none;
+  overflow: hidden;
+  
+  .el-collapse-item__header {
+    background-color: #fff;
+    padding: 12px 16px;
+    border-bottom: none;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background-color: #f8fcff;
+    }
+    
+    &.is-active {
+      border-bottom-color: #ebeef5;
+      background-color: #f0f9ff;
+    }
+    
+    .el-collapse-item__arrow {
+      margin-right: 8px;
+      transition: transform 0.3s;
+      color: #409eff;
+    }
+  }
+  
+  .el-collapse-item__wrap {
+    background-color: #fff;
+    
+    .el-collapse-item__content {
+      padding: 16px 20px;
+      background-color: #fafbfc;
+      border-top: 1px solid #ebeef5;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+    }
+  }
 }
 
 /* 步骤操作按钮区域 */
 .step-actions {
   display: flex;
   justify-content: flex-end;
-  padding: 12px 0;
+  padding: 16px 0 4px;
   margin-top: 12px;
-  border-top: 1px dashed #ebeef5;
+  border-top: 1px dashed #e0e5ee;
+  
+  .el-button {
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    &.delete-btn {
+      background-color: #fff5f5;
+      color: #f56c6c;
+      border-color: #fde2e2;
+      
+      &:hover {
+        background-color: #f56c6c;
+        color: #ffffff;
+        border-color: #f56c6c;
+      }
+    }
+  }
 }
 </style>

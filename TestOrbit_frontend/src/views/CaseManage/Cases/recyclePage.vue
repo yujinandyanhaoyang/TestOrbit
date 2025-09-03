@@ -1,38 +1,22 @@
 <template>
-  <el-button 
-    type="primary" 
-    style="margin-left: 16px" 
-    @click="drawer = true"
-  >
-    <el-icon class="el-icon--left"><Delete /></el-icon>
-    进入回收站
-  </el-button>
-
-  <el-drawer 
-    v-model="drawer" 
-    title="已删除用例回收站" 
-    size="70%" 
-    :with-header="true"
-    direction="rtl"
-  >
-    <div class="recycle-container">
-      <div class="recycle-header">
-        <h3>已删除用例列表</h3>
-        <div class="recycle-actions">
-          <el-button type="primary" size="small" @click="handleBatchRestore" :disabled="!hasSelection">
-            <el-icon class="el-icon--left"><RefreshLeft /></el-icon>
-            批量恢复
-          </el-button>
-          <el-button type="danger" size="small" @click="handleBatchDelete" :disabled="!hasSelection">
-            <el-icon class="el-icon--left"><DeleteFilled /></el-icon>
-            彻底删除
-          </el-button>
-          <el-button type="danger" size="small" @click="handleClearAll">
-            <el-icon class="el-icon--left"><DeleteFilled /></el-icon>
-            清空回收站
-          </el-button>
-        </div>
+  <div class="recycle-container">
+    <div class="recycle-header">
+      <h3>已删除用例列表</h3>
+      <div class="recycle-actions">
+        <el-button type="primary" size="small" @click="handleBatchRestore" :disabled="!hasSelection">
+          <el-icon class="el-icon--left"><RefreshLeft /></el-icon>
+          批量恢复
+        </el-button>
+        <el-button type="danger" size="small" @click="handleBatchDelete" :disabled="!hasSelection">
+          <el-icon class="el-icon--left"><DeleteFilled /></el-icon>
+          彻底删除
+        </el-button>
+        <el-button type="danger" size="small" @click="handleClearAll">
+          <el-icon class="el-icon--left"><DeleteFilled /></el-icon>
+          清空回收站
+        </el-button>
       </div>
+    </div>
       
       <el-table
         ref="recycleTableRef"
@@ -80,19 +64,19 @@
         @current-change="handleCurrentChange"
       />
     </div>
-  </el-drawer>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import { Delete, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue'
+import { ref, onMounted, watch, computed, inject, onBeforeMount } from 'vue'
+import { RefreshLeft, DeleteFilled } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import type { CaseGroupInfo } from '@/api/case/caseGroup/types'
 import { getCaseGroupList, RestoreCaseGroup,RealDeleteCaseGroup,ClearCaseGroup } from '@/api/case/caseGroup'
 
+// 从父组件注入抽屉控制状态
+const recycleDrawer = inject('recycleDrawer', ref(false))
 
-// 抽屉控制
-const drawer = ref(false)
+
 
 // 表格数据
 const recycleTableRef = ref()
@@ -107,7 +91,7 @@ const pageSize = ref(10)
 const total = ref(0)
 
 // 监听抽屉打开状态
-watch(drawer, (isOpen) => {
+watch(recycleDrawer, (isOpen) => {
   if (isOpen) {
     loadRecycleData()
   }
@@ -157,6 +141,13 @@ const handleCurrentChange = (page: number) => {
 const handleSelectionChange = (selection: CaseGroupInfo[]) => {
   selectedItems.value = selection
 }
+
+// 组件挂载时，如果抽屉已打开则加载数据
+onMounted(() => {
+  if (recycleDrawer.value) {
+    loadRecycleData()
+  }
+})
 
 // 恢复单个用例
 const handleRestore = (row: CaseGroupInfo) => {
