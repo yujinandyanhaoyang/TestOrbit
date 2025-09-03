@@ -241,7 +241,6 @@ const handleTabClick = (tab: any) => {
  */
 const handleOpenCaseDetail = (caseId: number) => {
   // 调用openCaseGroup方法，传入用例ID
-  // console.log('打开用例详情(Cases/index):', caseId);
   openCaseGroup(caseId)
 }
 

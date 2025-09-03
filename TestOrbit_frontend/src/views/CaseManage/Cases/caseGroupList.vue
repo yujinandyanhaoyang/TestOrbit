@@ -491,7 +491,6 @@ const handleBatchRun = async (parallel: number = 0) => {
 
 // 打开用例详情（集成到父组件中的标签系统）
 const openCaseDetail = (caseId: number) => {
-  // console.log('打开用例详情(caseGroupList):', caseId);
   emit('openCaseDetail', caseId)
 }
 

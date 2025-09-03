@@ -21,14 +21,12 @@ request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     if (token) {
         // 添加Authorization头，格式为 'Bearer ' + token 或直接使用token，取决于后端要求
         config.headers.Authorization = `Token ${token}`
-        // console.log(config)
     }
     
     return config
 })
 
 // 使用上面导入的router和ElMessage
-
 // 响应拦截器
 request.interceptors.response.use(
     (response: AxiosResponse) => {

@@ -45,7 +45,6 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     error.value = null
     
     try {
-    //   console.log('🔄 Store: 正在获取用例组详情，ID:', caseId)
       const response = await getCaseGroupDetail(caseId)
       
       if (response.code === 200) {
@@ -62,13 +61,8 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
           }
         }
         
-        // 🔥 更新 store 状态
+        // 更新 store 状态
         caseGroupDetail.value = response.results
-        // console.log('✅ Store: 用例组详情加载成功:', {
-        //   name: response.results.name,
-        //   stepsCount: response.results.steps?.length || 0,
-        //   moduleId: response.results.module_id
-        // })
         
         ElMessage.success(`成功加载用例组: ${response.results.name}`)
         return response.results
@@ -126,11 +120,6 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     // 🔥 更新 store 中的步骤数据
     caseGroupDetail.value.steps[stepIndex] = updatedStep
 
-    // console.log(`✅ Store: 步骤 ${stepId} 已更新`, {
-    //   stepName: updatedStep.step_name,
-    //   assertionsCount: updatedStep.assertions?.length || 0,
-    //   hasParams: !!updatedStep.params
-    // })
   }
 
   // 🔥 Action：添加新步骤
@@ -191,23 +180,15 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
       assertions: []
     }
 
-    // 🔥 添加到 store
+    // 添加到 store
     caseGroupDetail.value.steps.push(newStep)
-    
-    console.log(`✅ Store: 新步骤已添加`, {
-      tempId,
-      stepName: newStep.step_name,
-      order: newStep.step_order,
-      totalSteps: caseGroupDetail.value.steps.length
-    })
 
     return newStep
   }
 
-  // 🔥 Action：删除步骤
+  // Action：删除步骤
   function removeStep(stepId: number) {
     if (!caseGroupDetail.value?.steps) {
-      console.warn('Store: removeStep 失败，steps 数据不存在')
       return
     }
 
@@ -223,11 +204,6 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
     // 🔥 从 store 中移除步骤
     const removedStep = caseGroupDetail.value.steps.splice(stepIndex, 1)[0]
     
-    console.log(`✅ Store: 步骤已删除`, {
-      stepId,
-      stepName: removedStep.step_name,
-      remainingSteps: caseGroupDetail.value.steps.length
-    })
 
     return removedStep
   }
@@ -236,7 +212,6 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
   function clearCaseGroupDetail() {
     caseGroupDetail.value = null
     error.value = null
-    console.log('🧹 Store: 用例组数据已清空')
   }
 
   // 🔥 Action：初始化新用例组
@@ -254,10 +229,6 @@ export const useCaseGroupStore = defineStore('caseGroup', () => {
       only_show: false
     }
     
-    console.log('✅ Store: 初始化新用例组', {
-      moduleId,
-      name: caseGroupDetail.value.name
-    })
     
     return caseGroupDetail.value
   }
